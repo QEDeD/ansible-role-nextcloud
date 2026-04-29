@@ -472,6 +472,12 @@ ansible-playbook -i inventory/hosts setup.yml --tags=set-ldap-config-nextcloud -
 
 To `agent_password`, set the password of the bind user (on this case: `agent`).
 
+### Configuring OIDC provider application
+
+This role can optionally enable and configure the [OpenID Connect Provider app](https://apps.nextcloud.com/apps/oidc), so that users can login to other services using their Nextcloud accounts via OAuth2.
+
+See [this page](./configuring-oidc-provider.md) for details about how to set it up.
+
 ### Using the occ command
 
 It is possible to run occ command, Nextcloud's command line interface, by running the `occ-nextcloud` tag, setting the `command` extra variable.

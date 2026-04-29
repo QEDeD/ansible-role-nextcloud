@@ -6,8 +6,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Configuring the OIDC Provider for Nextcloud
 
-This role can optionally enable and configure the [OpenID Connect Provider App](https://github.com/H2CK/oidc), so that users can login to other services using their Nextcloud accounts via OAuth2.
-
 The `oidc.yml` task provided in this role will request a list of all installed OIDC clients, remove clients if settings don't match and (re-)install clients with the provided configuration.
 
 ## Basic usage
@@ -51,8 +49,8 @@ nextcloud_oidc_clients:
 
 Run the configuration task with:
 
-```cmd
-just run-tags configure-oidc-provider-nextcloud
+```sh
+ansible-playbook -i inventory/hosts setup.yml --tags=configure-oidc-provider-nextcloud
 ```
 
 ## Additional configuration
