@@ -338,19 +338,17 @@ ansible-playbook -i inventory/hosts setup.yml --tags=adjust-nextcloud-config
 
 You can open the URL with a web browser to log in to the instance. See [this official guide](https://docs.nextcloud.com/server/latest/admin_manual/contents.html) to get started.
 
-### Integrate Collabora Online Development Edition (optional)
+### Configuring Nextcloud Office application (optional)
 
-It is possible to integrate the Collabora Online Development Edition (CODE) instance to Nextcloud.
+With this role it is possible to install and configure the [Nextcloud Office application](https://apps.nextcloud.com/apps/richdocuments). The Nextcloud instance works as a WOPI (Web Application Open Platform Interface) Host, which requires a WOPI-like Client such as a [Collabora Online Development Edition (CODE)](https://www.collaboraonline.com/code/).
 
-If you are looking for an Ansible role for CODE, you can check out [ansible-role-collabora-online](https://github.com/mother-of-all-self-hosting/ansible-role-collabora-online) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
-
-After installing CODE and [defining an allowed WOPI (Web Application Open Platform Interface) host](https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html#how-to-configure-docker-image) to the `aliasgroup1` environment variable for the CODE instance, add the following configuration for Nextcloud to your `vars.yml` file:
+To integrate the application with an existing CODE instance, add the following configuration to your `vars.yml` file:
 
 ```yaml
 nextcloud_app_richdocuments_wopi_client_url: YOUR_CODE_INSTANCE_URL_HERE
 ```
 
-Then, run this command to install and configure the [Office](https://apps.nextcloud.com/apps/richdocuments) app for Nextcloud:
+Then, run this command to install and configure the Nextcloud Office application on your Nextcloud instance:
 
 ```sh
 ansible-playbook -i inventory/hosts setup.yml --tags=install-nextcloud-app-richdocuments
@@ -358,10 +356,12 @@ ansible-playbook -i inventory/hosts setup.yml --tags=install-nextcloud-app-richd
 
 Open the URL `https://example.com/settings/admin/richdocuments` to have the instance set up the connection with the CODE instance.
 
-You should then be able to open any document (`.doc`, `.odt`, `.pdf`, etc.) and create new ones in Nextcloud Files with Collabora Online Development Edition's editor.
+You should then be able to open any document (`.doc`, `.odt`, `.pdf`, etc.) and create new ones in Nextcloud Files with the Nextcloud Office application.
 
 >[!NOTE]
-> By default, various private IPv4 networks are whitelisted to connect to the WOPI API (document serving API). If your CODE instance does not live on the same server as Nextcloud, you may need to adjust the list of networks. If necessary, redefine the `nextcloud_app_richdocuments_wopi_client_allowlist` environment variable on `vars.yml`.
+>
+> - If you are looking for an Ansible role for CODE, you can check out [ansible-role-collabora-online](https://github.com/mother-of-all-self-hosting/ansible-role-collabora-online) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
+> - By default, several private IPv4 networks are whitelisted to connect to the WOPI API (document serving API). If your CODE instance does not live on the same server as Nextcloud, you may need to adjust the list of networks. If necessary, redefine the `nextcloud_app_richdocuments_wopi_client_allowlist` environment variable on `vars.yml`.
 
 #### Setting a default file format (optional)
 
