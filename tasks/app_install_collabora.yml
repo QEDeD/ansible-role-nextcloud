@@ -50,3 +50,5 @@
       value: "{{ nextcloud_app_collabora_wopi_url }}"
     - key: wopi_allowlist
       value: "{{ nextcloud_app_collabora_wopi_allowlist }}"
+  register: nextcloud_app_richdocuments_config_set_result
+  changed_when: "'is now set to' in nextcloud_app_richdocuments_config_set_result.stdout and 'Config value were not updated' not in nextcloud_app_richdocuments_config_set_result.stdout"
