@@ -27,13 +27,14 @@
 - name: Install Nextcloud office (Collabora app)
   ansible.builtin.command:
     cmd: "docker exec --user={{ nextcloud_uid }}:{{ nextcloud_gid }} {{ nextcloud_identifier }}-server php /var/www/html/occ --no-warnings app:install richdocuments"
-  failed_when: false
-  register: collabora_install_result
+  register: nextcloud_app_richdocuments_result
+  changed_when: "nextcloud_app_richdocuments_result.rc == 0 and 'installed' in nextcloud_app_richdocuments_result.stdout"
+  failed_when: "nextcloud_app_richdocuments_result.rc != 0 and 'richdocuments already installed' not in nextcloud_app_richdocuments_result.stdout"
 
 - name: Fail if Nextcloud office (Collabora app) failed to install
   ansible.builtin.fail:
-    msg: "Nextcloud Office failed to install. Full error: {{ collabora_install_result }}"
-  when: "collabora_install_result.rc != 0 and collabora_install_result.stdout != 'richdocuments already installed'"
+    msg: "Nextcloud Office failed to install. Full error: {{ nextcloud_app_richdocuments_result }}"
+  when: "nextcloud_app_richdocuments_result.rc != 0 and nextcloud_app_richdocuments_result.stdout != 'richdocuments already installed'"
 
 - name: Check existence of Collabora network in Docker
   ansible.builtin.command:
