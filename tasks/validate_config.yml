@@ -59,6 +59,8 @@
     - { "name": "nextcloud_database_postgres_password", when: true }
     - "name": "nextcloud_container_labels_traefik_compression_middleware_name"
       when: "{{ nextcloud_container_labels_traefik_compression_middleware_enabled }}"
+    - "name": "nextcloud_environment_variables_nextcloud_admin_password"
+      when: "{{ nextcloud_environment_variables_nextcloud_admin_user != '' }}"
 
 - name: Fail if Nextcloud log type is invalid
   ansible.builtin.fail:

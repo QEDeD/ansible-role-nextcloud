@@ -8,6 +8,7 @@ SPDX-FileCopyrightText: 2020-2025 Slavi Pantaleev
 SPDX-FileCopyrightText: 2022 François Darveau
 SPDX-FileCopyrightText: 2022 Julian Foad
 SPDX-FileCopyrightText: 2022 Warren Bailey
+SPDX-FileCopyrightText: 2023 Alejandro AR
 SPDX-FileCopyrightText: 2023 Antonis Christofides
 SPDX-FileCopyrightText: 2023 Felix Stupp
 SPDX-FileCopyrightText: 2023 Julian-Samuel Gebühr
@@ -74,6 +75,19 @@ After adjusting the hostname, make sure to adjust your DNS records to point the 
 
 >[!NOTE]
 > Changing the hostname after the first installation is currently not supported by Nextcloud. See [this page](https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/domain_change.html) on the documentation as well.
+
+### Setting username and password for the initial admin user (optional)
+
+It is possible to create an initial user with administrator privileges by adding the following configuration to your `vars.yml` file:
+
+```yaml
+nextcloud_environment_variables_nextcloud_admin_user: ADMIN_USER_USERNAME_HERE
+
+nextcloud_environment_variables_nextcloud_admin_password: ADMIN_USER_PASSWORD_HERE
+```
+
+>[!NOTE]
+> Changing those values does not update them once the user is created.
 
 ### Configuring database
 
@@ -308,7 +322,8 @@ If you use the MASH playbook, the shortcut commands with the [`just` program](ht
 ## Usage
 
 After running the command for installation, the Nextcloud instance becomes available at the URL specified with `nextcloud_hostname` and `nextcloud_path_prefix`. With the configuration above, the service is hosted at `https://example.com`.
-To complete the setup, visit the instance in your browser, choose the credentials for the admin account and confirm the installation.
+
+To get started, open the URL with a web browser, and follow the set up wizard. If you have specified the initial administrator's username and password on your `vars.yml` file, you should be able to log in to the instance with the log in credentials.
 
 ### Update configuration
 
