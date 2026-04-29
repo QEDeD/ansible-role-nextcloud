@@ -347,13 +347,13 @@ If you are looking for an Ansible role for CODE, you can check out [ansible-role
 After installing CODE and [defining an allowed WOPI (Web Application Open Platform Interface) host](https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html#how-to-configure-docker-image) to the `aliasgroup1` environment variable for the CODE instance, add the following configuration for Nextcloud to your `vars.yml` file:
 
 ```yaml
-nextcloud_app_collabora_wopi_url: YOUR_CODE_INSTANCE_URL_HERE
+nextcloud_app_richdocuments_wopi_client_url: YOUR_CODE_INSTANCE_URL_HERE
 ```
 
 Then, run this command to install and configure the [Office](https://apps.nextcloud.com/apps/richdocuments) app for Nextcloud:
 
 ```sh
-ansible-playbook -i inventory/hosts setup.yml --tags=install-nextcloud-app-collabora
+ansible-playbook -i inventory/hosts setup.yml --tags=install-nextcloud-app-richdocuments
 ```
 
 Open the URL `https://example.com/settings/admin/richdocuments` to have the instance set up the connection with the CODE instance.
@@ -361,7 +361,7 @@ Open the URL `https://example.com/settings/admin/richdocuments` to have the inst
 You should then be able to open any document (`.doc`, `.odt`, `.pdf`, etc.) and create new ones in Nextcloud Files with Collabora Online Development Edition's editor.
 
 >[!NOTE]
-> By default, various private IPv4 networks are whitelisted to connect to the WOPI API (document serving API). If your CODE instance does not live on the same server as Nextcloud, you may need to adjust the list of networks. If necessary, redefine the `nextcloud_app_collabora_wopi_allowlist` environment variable on `vars.yml`.
+> By default, various private IPv4 networks are whitelisted to connect to the WOPI API (document serving API). If your CODE instance does not live on the same server as Nextcloud, you may need to adjust the list of networks. If necessary, redefine the `nextcloud_app_richdocuments_wopi_client_allowlist` environment variable on `vars.yml`.
 
 #### Setting a default file format (optional)
 

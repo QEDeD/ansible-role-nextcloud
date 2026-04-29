@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2023 Slavi Pantaleev
+# SPDX-FileCopyrightText: 2026 Suguru Hirahara
 # SPDX-FileCopyrightText: 2026 Timofej Luitle
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -58,13 +59,14 @@
     - name: Run LDAP configuration tasks based on Nextcloud AIO stack's default settings
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/ldap.yml"
 
-- name: Perform Collabora Online Development Edition installation tasks for Nextcloud
+- name: Perform Nextcloud Office application configuration tasks for Nextcloud
   when: nextcloud_enabled | bool
   tags:
     - install-nextcloud-app-collabora
+    - install-nextcloud-app-richdocuments
   block:
-    - name: Install Collabola Online as Office application on Nextcloud
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/app_install_collabora.yml"
+    - name: Install Nextcloud Office application and configure a WOPI-like client
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/app_install_richdocuments.yml"
 
 - name: Perform Nextcloud configuration adjustment tasks
   when: nextcloud_enabled | bool

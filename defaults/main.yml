@@ -627,10 +627,11 @@ nextcloud_app_autoupdate_schedule: "*-*-* 00:00:00"
 # Specify document format used for new files
 nextcloud_app_richdocuments_doc_format: odf
 
-# Specify a WOPI (Web Application Open Platform Interface) host to connect
-# Required for integrating Collabora Online Development Edition (CODE)
-nextcloud_app_collabora_wopi_url: ""
-nextcloud_app_collabora_wopi_allowlist: "10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
+# Specify a WOPI (Web Application Open Platform Interface) client to connect
+# Required for integrating a WOPI-like client such as Collabora Online Development Edition (CODE)
+nextcloud_app_richdocuments_wopi_client_url: ""
+nextcloud_app_richdocuments_wopi_client_allowlist: "10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
+nextcloud_app_richdocuments_wopi_client_network: ""
 
 # Enable AppAPI application to install External Apps (Ex-Apps)
 nextcloud_app_app_api_enabled: false
