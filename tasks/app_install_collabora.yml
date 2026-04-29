@@ -46,6 +46,8 @@
   ansible.builtin.command:
     cmd: "docker exec --user={{ nextcloud_uid }}:{{ nextcloud_gid }} {{ nextcloud_identifier }}-server php /var/www/html/occ --no-warnings config:app:set richdocuments {{ item.key }} --value=\"{{ item.value }}\""
   with_items:
+    - key: doc_format
+      value: "{{ nextcloud_app_richdocuments_doc_format }}"
     - key: wopi_url
       value: "{{ nextcloud_app_collabora_wopi_url }}"
     - key: wopi_allowlist

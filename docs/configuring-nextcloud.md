@@ -363,6 +363,16 @@ You should then be able to open any document (`.doc`, `.odt`, `.pdf`, etc.) and 
 >[!NOTE]
 > By default, various private IPv4 networks are whitelisted to connect to the WOPI API (document serving API). If your CODE instance does not live on the same server as Nextcloud, you may need to adjust the list of networks. If necessary, redefine the `nextcloud_app_collabora_wopi_allowlist` environment variable on `vars.yml`.
 
+#### Setting a default file format (optional)
+
+By default the Nextcloud Office application is configured to use OpenDocument Format (ODF) for new files, following [the latest documentation](https://github.com/nextcloud/richdocuments/blob/0aebcc63f86fb0ec1091832f8c14ef60148dbd74/docs/app_settings.md).
+
+To have it use Office Open XML (OOXML) of Microsoft instead, add the following configuration to your `vars.yml` file:
+
+```yaml
+nextcloud_app_richdocuments_doc_format: ooxml
+```
+
 ### Enable Preview Generator app (optional)
 
 It is also possible to set up preview generation by following the steps below.
