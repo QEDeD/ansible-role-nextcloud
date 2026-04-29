@@ -41,7 +41,7 @@
     - name: Run mimetype migrations on Nextcloud
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/mimetype_migrations.yml"
 
-- name: Perform OIDC Identity Provider application configuraton tasks for Nextcloud
+- name: Perform OIDC Identity Provider application configuration tasks for Nextcloud
   when: nextcloud_enabled | bool and nextcloud_app_oidc_enabled | bool
   tags:
     - configure-oidc-provider-nextcloud
