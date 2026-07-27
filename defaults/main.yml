@@ -443,16 +443,18 @@ nextcloud_redis_hostname: ""
 nextcloud_redis_password: ""
 nextcloud_redis_port: "{{ '0' if nextcloud_redis_socket_enabled else '6379' }}"
 
-nextcloud_redis_is_configured: "{{ nextcloud_redis_hostname !='' or nextcloud_redis_socket_path_host != '' }}"
+# Derived from endpoint presence; the transport selector alone does not enable Redis integration
+nextcloud_redis_is_configured: "{{ nextcloud_redis_hostname != '' or nextcloud_redis_socket_path_host != '' }}"
 
-# Control if the connection to Redis is made via a Unix socket
+# Select only the Redis connection transport: `true` for a Unix socket, `false` for TCP
+# This variable is ignored when neither endpoint is configured
 nextcloud_redis_socket_enabled: false
 
 # Specify the path to the Redis Unix socket path inside the Nextcloud container
 nextcloud_redis_socket_path_container: /run-valkey
 nextcloud_redis_socket_path: /valkey.sock
 
-# Specify the path to the Redis Unix socket path on the host (bind-mount source)
+# Specify the host directory containing the Redis Unix socket, bind-mounted into the Nextcloud container
 nextcloud_redis_socket_path_host: ""
 
 # Specify database host address or absolute path for Unix socket

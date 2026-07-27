@@ -204,26 +204,41 @@ Refer to [this page](https://docs.nextcloud.com/server/latest/admin_manual/confi
 
 Nextcloud recommends to set up memory caching for improving performance and preventing file locking problems. You can use [APCu](https://pecl.php.net/package/APCu), [Memcached](https://www.memcached.org/), and [Redis](https://redis.io/).
 
-To enable the Redis database for Nextcloud, add the following configuration to your `vars.yml` file. Note that the role is by default configured to establish connection with the Redis database via the Unix socket.
+The role supports connecting to Redis through either a Unix socket or TCP. TCP is the default transport (`nextcloud_redis_socket_enabled: false`), but Redis integration is not enabled until you configure an endpoint. Choose exactly one of the following configurations.
+
+To connect through a Unix socket, add the following configuration to your `vars.yml` file:
 
 ```yaml
-# Specify the path to the Redis Unix socket path on the host (bind-mount source)
-nextcloud_redis_socket_path_host: ""
+# Connect to Redis through a Unix socket
+nextcloud_redis_socket_enabled: true
 
+# Specify the host directory containing the Redis Unix socket (bind-mount source)
+nextcloud_redis_socket_path_host: /path/to/redis-socket-directory
+
+# Specify the Redis password
 nextcloud_redis_password: YOUR_REDIS_SERVER_PASSWORD_HERE
 ```
 
-If TCP connection is preferred, connection via the Unix socket can be disabled by adding the following configuration to your `vars.yml` file:
+In Unix-socket mode, omit or remove `nextcloud_redis_hostname`. Replace `/path/to/redis-socket-directory` and `YOUR_REDIS_SERVER_PASSWORD_HERE` with your own values.
+
+To connect through TCP, add the following configuration to your `vars.yml` file:
 
 ```yaml
-# Disable the connection to Redis via a Unix socket
+# Connect to Redis through TCP
 nextcloud_redis_socket_enabled: false
 
+# Specify the Redis hostname
 nextcloud_redis_hostname: YOUR_REDIS_SERVER_HOSTNAME_HERE
+
+# Specify the Redis password
 nextcloud_redis_password: YOUR_REDIS_SERVER_PASSWORD_HERE
 ```
 
-Make sure to replace `YOUR_REDIS_SERVER_HOSTNAME_HERE` and `YOUR_REDIS_SERVER_PASSWORD_HERE` with your own values.
+In TCP mode, omit or remove `nextcloud_redis_socket_path_host`. Replace `YOUR_REDIS_SERVER_HOSTNAME_HERE` and `YOUR_REDIS_SERVER_PASSWORD_HERE` with your own values.
+
+To disable Redis integration, omit or remove both `nextcloud_redis_hostname` and `nextcloud_redis_socket_path_host`, along with any Redis-only entries in `nextcloud_container_additional_networks_custom` and `nextcloud_systemd_required_services_list_custom`. `nextcloud_redis_socket_enabled` only selects the transport and has no effect when neither endpoint is configured.
+
+On an existing deployment, rerun the installation after changing these endpoint settings, then run the playbook with the `adjust-nextcloud-config` tag as described in [Update configuration](#update-configuration). The installation updates the container configuration, while the adjustment updates or removes Nextcloud's persisted Redis and memory-cache settings.
 
 See below for details:
 
