@@ -355,9 +355,9 @@ nextcloud_container_cleanup_retry_delay_seconds: "{{ devture_systemd_docker_base
 nextcloud_container_cleanup_command: |
   i=0;
   while [ "$i" -lt {{ nextcloud_container_cleanup_timeout_seconds }} ]; do
-  {{ devture_systemd_docker_base_host_command_docker }} stop -t {{ nextcloud_container_stop_grace_time_seconds }} {{ nextcloud_identifier }} >/dev/null 2>&1 || true;
-  {{ devture_systemd_docker_base_host_command_docker }} rm -f {{ nextcloud_identifier }} >/dev/null 2>&1 || true;
-  if {{ devture_systemd_docker_base_host_command_docker }} container inspect {{ nextcloud_identifier }} >/dev/null 2>&1; then
+  {{ devture_systemd_docker_base_host_command_docker }} stop -t {{ nextcloud_container_stop_grace_time_seconds }} {{ nextcloud_identifier }}-server >/dev/null 2>&1 || true;
+  {{ devture_systemd_docker_base_host_command_docker }} rm -f {{ nextcloud_identifier }}-server >/dev/null 2>&1 || true;
+  if {{ devture_systemd_docker_base_host_command_docker }} container inspect {{ nextcloud_identifier }}-server >/dev/null 2>&1; then
   i=$((i + 1));
   sleep {{ nextcloud_container_cleanup_retry_delay_seconds }};
   continue;
@@ -365,10 +365,10 @@ nextcloud_container_cleanup_command: |
   if {{ devture_systemd_docker_base_host_command_docker }} info >/dev/null 2>&1; then
   exit 0;
   fi;
-  echo "Failed to query Docker daemon while cleaning up {{ nextcloud_identifier }}" >&2;
+  echo "Failed to query Docker daemon while cleaning up {{ nextcloud_identifier }}-server" >&2;
   exit 1;
   done;
-  echo "Failed to remove stale container {{ nextcloud_identifier }} after {{ nextcloud_container_cleanup_timeout_seconds }} attempts" >&2;
+  echo "Failed to remove stale container {{ nextcloud_identifier }}-server after {{ nextcloud_container_cleanup_timeout_seconds }} attempts" >&2;
   exit 1
 
 ########################################################################
