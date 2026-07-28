@@ -1,0 +1,142 @@
+# SPDX-FileCopyrightText: 2026 MASH project contributors
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+- name: Test Nextcloud Redis session configuration cleanup
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    nextcloud_test_base_path: /nextcloud
+    nextcloud_test_data_marker_path: "{{ nextcloud_test_base_path }}/data/molecule-retained-data"
+    nextcloud_test_redis_session_ini_path: "{{ nextcloud_test_base_path }}/redis-session.ini"
+    nextcloud_test_server_unit_path: "{{ devture_systemd_docker_base_systemd_path }}/nextcloud-server.service"
+  tasks:
+    - name: Include support roles for Nextcloud uninstall tests
+      ansible.builtin.include_role:
+        name: "{{ role_name }}"
+        public: true
+      loop:
+        - com.devture.ansible.role.playbook_help
+        - com.devture.ansible.role.systemd_docker_base
+      loop_control:
+        loop_var: role_name
+
+    - name: Check Nextcloud cleanup test preconditions
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ nextcloud_test_redis_session_ini_path }}"
+        - "{{ nextcloud_test_server_unit_path }}"
+      register: nextcloud_test_cleanup_preconditions
+
+    - name: Assert generated files exist before testing their removal
+      ansible.builtin.assert:
+        that:
+          - nextcloud_test_cleanup_preconditions.results[0].stat.exists
+          - nextcloud_test_cleanup_preconditions.results[1].stat.exists
+        fail_msg: "Nextcloud cleanup test preconditions were not created by convergence"
+
+    - name: Create retained Nextcloud data marker
+      ansible.builtin.copy:
+        content: "This data must survive Nextcloud uninstallation.\n"
+        dest: "{{ nextcloud_test_data_marker_path }}"
+        mode: "0600"
+
+    - name: Uninstall Nextcloud after clearing Redis connection variables
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+      vars:
+        nextcloud_enabled: false
+        nextcloud_redis_hostname: ""
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+
+    - name: Check state after uninstalling with cleared Redis connection variables
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ nextcloud_test_redis_session_ini_path }}"
+        - "{{ nextcloud_test_data_marker_path }}"
+        - "{{ nextcloud_test_server_unit_path }}"
+      register: nextcloud_test_direct_uninstall_paths
+
+    - name: Assert direct uninstall removes generated Redis configuration and retains data
+      ansible.builtin.assert:
+        that:
+          - not nextcloud_test_direct_uninstall_paths.results[0].stat.exists
+          - nextcloud_test_direct_uninstall_paths.results[1].stat.exists
+          - not nextcloud_test_direct_uninstall_paths.results[2].stat.exists
+
+    - name: Recreate a legacy Redis session configuration residue
+      ansible.builtin.copy:
+        content: "; legacy role-owned Redis session configuration\n"
+        dest: "{{ nextcloud_test_redis_session_ini_path }}"
+        mode: "0600"
+
+    - name: Repeat uninstall with the Nextcloud systemd unit already absent
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+      vars:
+        nextcloud_enabled: false
+        nextcloud_redis_hostname: ""
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+
+    - name: Check state after cleaning up the legacy residue
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ nextcloud_test_redis_session_ini_path }}"
+        - "{{ nextcloud_test_data_marker_path }}"
+      register: nextcloud_test_legacy_cleanup_paths
+
+    - name: Assert repeated uninstall removes the legacy residue and retains data
+      ansible.builtin.assert:
+        that:
+          - not nextcloud_test_legacy_cleanup_paths.results[0].stat.exists
+          - nextcloud_test_legacy_cleanup_paths.results[1].stat.exists
+
+    - name: Remove retained Nextcloud data test marker
+      ansible.builtin.file:
+        path: "{{ nextcloud_test_data_marker_path }}"
+        state: absent
+
+- name: Restore Nextcloud after Redis session configuration cleanup tests
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Include roles for Nextcloud Molecule tests
+      ansible.builtin.include_role:
+        name: "{{ role_name }}"
+        public: true
+      loop:
+        - com.devture.ansible.role.playbook_help
+        - com.devture.ansible.role.systemd_docker_base
+        - ansible-role-valkey
+        - "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+      loop_control:
+        loop_var: role_name
+
+- name: Ensure restored Nextcloud service is started
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Ensure systemd daemon is reloaded
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Ensure Valkey systemd service is started
+      ansible.builtin.systemd_service:
+        name: valkey.service
+        state: started
+
+    - name: Ensure Nextcloud server systemd service is started
+      ansible.builtin.systemd_service:
+        name: nextcloud-server.service
+        state: started
