@@ -24,37 +24,14 @@
           {{ nextcloud_identifier }}-server
           php /var/www/html/occ --no-warnings config:system:set trusted_proxies 0 --type=string --value={{ nextcloud_reverse_proxy_container_network_subnet_result.stdout }}
 
-- name: Adjust Nextcloud configuration (parameters for Redis)
-  block:
-    - name: Set Nextcloud configuration for Redis if it is configured
-      when: nextcloud_redis_is_configured
-      ansible.builtin.command:
-        cmd: |-
-          {{ devture_systemd_docker_base_host_command_docker }} exec
-          --user={{ nextcloud_uid }}:{{ nextcloud_gid }}
-          {{ nextcloud_identifier }}-server
-          php /var/www/html/occ --no-warnings config:system:set redis --type json --value '{"host":"{{ nextcloud_environment_variables_redis_host }}","port":{{ nextcloud_redis_port }}{% if nextcloud_redis_password != '' %},"password":"{{ nextcloud_redis_password }}"{% endif %}}'
-
-    - name: Delete Nextcloud configuration for Redis if it is not configured
-      when: "not nextcloud_redis_is_configured | bool"
-      ansible.builtin.command:
-        cmd: |-
-          {{ devture_systemd_docker_base_host_command_docker }} exec
-          --user={{ nextcloud_uid }}:{{ nextcloud_gid }}
-          {{ nextcloud_identifier }}-server
-          php /var/www/html/occ --no-warnings config:system:delete redis
-
-    - name: Delete Nextcloud configuration for external caching if Redis is not configured
-      when: "not nextcloud_redis_is_configured | bool"
-      ansible.builtin.command:
-        cmd: |-
-          {{ devture_systemd_docker_base_host_command_docker }} exec
-          --user={{ nextcloud_uid }}:{{ nextcloud_gid }}
-          {{ nextcloud_identifier }}-server
-          php /var/www/html/occ --no-warnings config:system:delete {{ item }}
-      with_items:
-        - memcache.distributed
-        - memcache.locking
+- name: Set Nextcloud configuration for Redis if it is configured
+  when: nextcloud_redis_is_configured
+  ansible.builtin.command:
+    cmd: |-
+      {{ devture_systemd_docker_base_host_command_docker }} exec
+      --user={{ nextcloud_uid }}:{{ nextcloud_gid }}
+      {{ nextcloud_identifier }}-server
+      php /var/www/html/occ --no-warnings config:system:set redis --type json --value '{"host":"{{ nextcloud_environment_variables_redis_host }}","port":{{ nextcloud_redis_port }}{% if nextcloud_redis_password != '' %},"password":"{{ nextcloud_redis_password }}"{% endif %}}'
 
 - name: Adjust Nextcloud configuration (custom parameters)
   ansible.builtin.command:
@@ -142,3 +119,16 @@
         mode: "0644"
         owner: "{{ nextcloud_uid }}"
         group: "{{ nextcloud_gid }}"
+
+# Keep this as the final system-configuration write. The Nextcloud Docker image
+# merges Redis environment configuration into every OCC process, so separate
+# deletes or a later write can serialize an already-deleted value again.
+- name: Delete persisted Nextcloud Redis configuration if it is not configured
+  when: "not nextcloud_redis_is_configured | bool"
+  ansible.builtin.command:
+    cmd: |-
+      {{ devture_systemd_docker_base_host_command_docker }} exec --interactive
+      --user={{ nextcloud_uid }}:{{ nextcloud_gid }}
+      {{ nextcloud_identifier }}-server
+      php /var/www/html/occ --no-warnings config:import
+    stdin: '{"system":{"redis":null,"memcache.distributed":null,"memcache.locking":null}}'
