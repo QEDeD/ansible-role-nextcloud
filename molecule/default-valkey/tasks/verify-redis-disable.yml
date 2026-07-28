@@ -134,7 +134,7 @@
   register: nextcloud_redis_keys_after_disabling
   changed_when: false
 
-- name: Assert all persisted Redis-related settings were deleted atomically
+- name: Assert all persisted Redis-related settings were deleted together
   ansible.builtin.assert:
     that:
       - nextcloud_redis_keys_after_disabling.stdout == '000'
