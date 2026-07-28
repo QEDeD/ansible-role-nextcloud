@@ -27,13 +27,39 @@
 - name: Adjust Nextcloud configuration (parameters for Redis)
   block:
     - name: Set Nextcloud configuration for Redis if it is configured
-      when: nextcloud_redis_is_configured
+      when: nextcloud_redis_is_configured | bool
+      vars:
+        nextcloud_redis_configuration: >-
+          {{
+            {
+              'host': nextcloud_environment_variables_redis_host,
+              'port': nextcloud_environment_variables_redis_port | int,
+            }
+            |
+            combine(
+              {'password': nextcloud_redis_password}
+              if nextcloud_redis_password != ''
+              else {}
+            )
+          }}
       ansible.builtin.command:
         cmd: |-
-          {{ devture_systemd_docker_base_host_command_docker }} exec
+          {{ devture_systemd_docker_base_host_command_docker }} exec --interactive
           --user={{ nextcloud_uid }}:{{ nextcloud_gid }}
           {{ nextcloud_identifier }}-server
-          php /var/www/html/occ --no-warnings config:system:set redis --type json --value '{"host":"{{ nextcloud_environment_variables_redis_host }}","port":{{ nextcloud_environment_variables_redis_port }}{% if nextcloud_redis_password != '' %},"password":"{{ nextcloud_redis_password }}"{% endif %}}'
+          php /var/www/html/occ --no-warnings config:import
+        stdin: >-
+          {{
+            {
+              'system': {
+                'redis': nextcloud_redis_configuration,
+              },
+            }
+            |
+            to_json
+          }}
+        stdin_add_newline: false
+      no_log: true
 
     - name: Delete Nextcloud configuration for Redis if it is not configured
       when: "not nextcloud_redis_is_configured | bool"

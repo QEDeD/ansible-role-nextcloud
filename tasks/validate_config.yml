@@ -132,6 +132,18 @@
 - name: Run if Nextcloud + Redis integration is enabled
   when: nextcloud_redis_is_configured | bool
   block:
+    - name: Fail if Redis password cannot be represented in the Docker environment file
+      ansible.builtin.fail:
+        msg: >-
+          The `nextcloud_redis_password` value must be a single line and must not contain NUL characters,
+          because it is written to a Docker environment file.
+      # Build the control characters during evaluation because YAML/Jinja can
+      # normalize a literal carriage return before the condition sees it.
+      when: >-
+        ('%c' | format(13)) in nextcloud_redis_password or
+        ('%c' | format(10)) in nextcloud_redis_password or
+        ('%c' | format(0)) in nextcloud_redis_password
+
     - name: Fail if both Redis hostname and socket host path for Nextcloud are set
       ansible.builtin.fail:
         msg: >-
