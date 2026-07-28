@@ -292,7 +292,7 @@ For an existing deployment, the safe order depends on the target state:
 - **Enable Redis or switch transport:** configure the complete Unix-socket or TCP state, rerun the installation, and then run the `adjust-nextcloud-config` tag. The installation updates the container environment, mounts, networks, and systemd dependencies before Nextcloud persists the matching endpoint.
 - **Disable Redis:** clear both endpoints and remove any Redis-only network or systemd entries from your inventory, but keep the old server reachable. Run the `adjust-nextcloud-config` tag first; it removes the role-managed `redis`, `memcache.distributed`, and `memcache.locking` keys in one import while the running container can still reach the old endpoint. Only after that succeeds, rerun the installation to remove the Redis environment, socket mount, session configuration, and related runtime wiring.
 
-Explicit `redis`, `memcache.distributed`, or `memcache.locking` entries in `nextcloud_config_parameters_custom` continue to take precedence. Remove those entries as well if the desired state is fully disabled.
+Explicit `redis`, `memcache.distributed`, or `memcache.locking` entries in the effective `nextcloud_config_parameters` list—normally added through `nextcloud_config_parameters_custom`—continue to take precedence. Remove those entries as well if the desired state is fully disabled.
 
 Recovery also depends on how far a disable transition progressed:
 
@@ -302,14 +302,6 @@ Recovery also depends on how far a disable transition progressed:
 After a change, use the `query-status-nextcloud` tag and review Nextcloud's administration overview for cache or file-locking warnings. To roll back an enable or transport switch, restore the previous complete target state, rerun the installation, and then rerun the configuration adjustment.
 
 Disabling this integration does not stop or uninstall the external Redis-compatible server and does not delete its data. Manage that server separately, especially if another application shares it.
-
-#### Disabling Redis integration on an existing deployment
-
-To stop using Redis, clear both `nextcloud_redis_hostname` and `nextcloud_redis_socket_path_host`. Also remove any `redis`, `memcache.distributed`, or `memcache.locking` entries which you explicitly added through `nextcloud_config_parameters` (normally with `nextcloud_config_parameters_custom`); explicit custom parameters continue to take precedence over role-managed values.
-
-Keep the old Redis server and connection available while you first run the playbook with the `adjust-nextcloud-config` tag. This removes Nextcloud's role-managed `redis`, `memcache.distributed`, and `memcache.locking` settings in one configuration update. Then rerun the installation to remove the container environment, socket mount, session configuration, and any Redis-only network or systemd dependency which you also removed from your configuration.
-
-After both runs, use the `query-status-nextcloud` tag and review Nextcloud's administration overview for cache or file-locking warnings. Disabling this integration does not stop or uninstall the external Redis-compatible server and does not delete its data.
 
 See below for details:
 
