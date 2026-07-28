@@ -56,7 +56,10 @@ provisioner:
         valkey_uid: 1000
         valkey_gid: 1000
         valkey_arch: amd64
-        valkey_connection_password: "{{ nextcloud_test_redis_password }}"
+        # The Valkey role writes this value as a raw valkey.conf argument.
+        # Quote the fixture token so Valkey receives the semantic password
+        # without treating its apostrophe as an unmatched configuration quote.
+        valkey_connection_password: '"{{ nextcloud_test_redis_password }}"'
   env:
     # Workaround for https://github.com/ansible/molecule/issues/4391
     ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..:/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/roles
