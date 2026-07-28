@@ -52,7 +52,9 @@
     path: "{{ nextcloud_data_path }}/config/config.php"
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
-  no_log: "{{ item.no_log }}"
+  # Ansible may resolve no_log before assigning a loop item when this task is skipped.
+  # Default to true so pre-loop evaluation remains quiet and secret-safe.
+  no_log: "{{ item.no_log | default(true) }}"
   with_items:
     - regexp: "^\\s*'dbpassword'\\s*=>"
       line: "  'dbpassword' => '{{ nextcloud_config_dbpassword }}',"
