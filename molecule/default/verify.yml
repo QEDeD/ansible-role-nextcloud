@@ -46,6 +46,25 @@
         fail_msg: "Nextcloud did not respond as expected ({{ nextcloud_endpoint.status | default('no response') }})"
         success_msg: "Nextcloud responded with {{ nextcloud_endpoint.status }}"
 
+    - name: Include systemd Docker base defaults for SQLite adjustment testing
+      ansible.builtin.include_role:
+        name: com.devture.ansible.role.systemd_docker_base
+        public: true
+
+    - name: Adjust Nextcloud configuration with SQLite defaults
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+        tasks_from: adjust_config
+
+    - name: Assert SQLite adjustment omits database-server host configuration
+      ansible.builtin.assert:
+        that:
+          - nextcloud_database_type == 'sqlite'
+          - >-
+            'dbhost' not in
+            (nextcloud_config_parameters | map(attribute='key') | list)
+
     - name: Show Nextcloud systemd service status summary
       ansible.builtin.debug:
         msg:

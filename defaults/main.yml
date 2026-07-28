@@ -533,6 +533,11 @@ nextcloud_config_parameters_default: |
         'value': nextcloud_config_dbhost,
         'type': 'string',
       },
+    ] if nextcloud_database_type in ['mysql', 'postgres'] else [])
+
+    +
+
+    ([
       {
         'key': 'default_language',
         'value': nextcloud_config_parameter_default_language,
