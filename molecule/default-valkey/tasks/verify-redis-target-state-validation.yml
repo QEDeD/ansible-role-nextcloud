@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 MASH project contributors
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+- name: Reset the captured Redis target-state validation message
+  ansible.builtin.set_fact:
+    nextcloud_redis_target_state_validation_message: ""
+
+- name: Validate a conflicting Redis target state
+  block:
+    - name: Run Nextcloud validation with a conflicting Redis target state
+      vars:
+        nextcloud_redis_hostname: "{{ nextcloud_redis_conflict_case.hostname }}"
+        nextcloud_redis_socket_path_host: "{{ nextcloud_redis_conflict_case.socket_path_host }}"
+        nextcloud_redis_socket_enabled: "{{ nextcloud_redis_conflict_case.socket_enabled }}"
+        nextcloud_redis_port: "{{ nextcloud_redis_conflict_case.port }}"
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+        tasks_from: validate_config
+
+    - name: Fail because the conflicting Redis target state was accepted
+      ansible.builtin.fail:
+        msg: "Redis target-state conflict `{{ nextcloud_redis_conflict_case.name }}` was unexpectedly accepted"
+  rescue:
+    - name: Capture the Redis target-state validation message
+      ansible.builtin.set_fact:
+        nextcloud_redis_target_state_validation_message: "{{ ansible_failed_result.msg | default('') }}"
+
+- name: Assert Redis target-state validation explains the observation and all exits
+  ansible.builtin.assert:
+    that:
+      - "'Invalid Redis target state.' in nextcloud_redis_target_state_validation_message"
+      - nextcloud_redis_conflict_case.observed in nextcloud_redis_target_state_validation_message
+      - "'cannot infer whether the endpoint setting or the transport selector is stale' in nextcloud_redis_target_state_validation_message"
+      - "'Redis integration is enabled by either endpoint variable' in nextcloud_redis_target_state_validation_message"
+      - "'Unix socket:' in nextcloud_redis_target_state_validation_message"
+      - "'TCP:' in nextcloud_redis_target_state_validation_message"
+      - "'Disabled:' in nextcloud_redis_target_state_validation_message"
+      - "'effective value must be empty' in nextcloud_redis_target_state_validation_message"
+      - "'same host operating system' in nextcloud_redis_target_state_validation_message"
+      - "'reachable from inside the container' in nextcloud_redis_target_state_validation_message"
+      - "'docs/configuring-nextcloud.md' in nextcloud_redis_target_state_validation_message"
+      - >-
+        (
+          nextcloud_redis_conflict_case.migration_hint_expected
+          and 'v33.0.2-3' in nextcloud_redis_target_state_validation_message
+        )
+        or
+        (
+          not nextcloud_redis_conflict_case.migration_hint_expected
+          and 'v33.0.2-3' not in nextcloud_redis_target_state_validation_message
+        )
+    fail_msg: >-
+      Redis target-state conflict `{{ nextcloud_redis_conflict_case.name }}`
+      did not produce the expected actionable diagnostic
+    success_msg: >-
+      Redis target-state conflict `{{ nextcloud_redis_conflict_case.name }}`
+      produced the expected actionable diagnostic

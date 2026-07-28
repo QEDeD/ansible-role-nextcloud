@@ -132,52 +132,83 @@
 - name: Run if Nextcloud + Redis integration is enabled
   when: nextcloud_redis_is_configured | bool
   block:
-    - name: Fail if both Redis hostname and socket host path for Nextcloud are set
+    - name: Fail if Redis endpoint and transport settings conflict
+      vars:
+        nextcloud_redis_both_endpoints_configured: >-
+          {{
+            nextcloud_redis_hostname | string | length != 0 and
+            nextcloud_redis_socket_path_host | string | length != 0
+          }}
+        nextcloud_redis_hostname_with_socket_transport: >-
+          {{
+            nextcloud_redis_hostname | string | length != 0 and
+            nextcloud_redis_socket_enabled | bool
+          }}
+        nextcloud_redis_socket_path_with_tcp_transport: >-
+          {{
+            nextcloud_redis_socket_path_host | string | length != 0 and
+            not nextcloud_redis_socket_enabled | bool
+          }}
+        nextcloud_redis_conflict_observed: >-
+          {{
+            'Both `nextcloud_redis_hostname` and `nextcloud_redis_socket_path_host` are non-empty, so two alternative endpoints are configured.'
+            if nextcloud_redis_both_endpoints_configured | bool
+            else
+            '`nextcloud_redis_socket_enabled` selects a Unix socket, but `nextcloud_redis_hostname` configures a TCP endpoint.'
+            if nextcloud_redis_hostname_with_socket_transport | bool
+            else
+            '`nextcloud_redis_socket_path_host` configures a Unix-socket endpoint, but `nextcloud_redis_socket_enabled` selects TCP.'
+          }}
       ansible.builtin.fail:
-        msg: >-
-          You may need to define either `nextcloud_redis_hostname` or `nextcloud_redis_socket_path_host` to enable Redis integration.
-      when: >-
-        nextcloud_redis_hostname | string | length != 0 and
-        nextcloud_redis_socket_path_host | string | length != 0
+        msg: |-
+          Invalid Redis target state.
 
-    - name: Fail if Redis hostname for Nextcloud is set when Unix socket is enabled
-      ansible.builtin.fail:
-        msg: >-
-          You need to define `nextcloud_redis_socket_path_host` and remove `nextcloud_redis_hostname` to enable Redis integration,
-          when `nextcloud_redis_socket_enabled` is `true`.
-          Check the documentation for details.
-          You may remove the Redis service from `nextcloud_container_additional_networks_custom` if specified.
-      when: >-
-        nextcloud_redis_hostname | string | length != 0 and
-        nextcloud_redis_socket_enabled
+          Observed: {{ nextcloud_redis_conflict_observed }}
+          The role cannot infer whether the endpoint setting or the transport selector is stale.
 
-    - name: Fail if Redis socket host path for Nextcloud is set when Unix socket is not enabled
-      ansible.builtin.fail:
-        msg: >-
-          You need to define `nextcloud_redis_hostname` and remove `nextcloud_redis_socket_path_host` to enable Redis integration,
-          when `nextcloud_redis_socket_enabled` is `false`.
-          Check the documentation for details.
-          You may also need to specify the Redis service to `nextcloud_container_additional_networks_custom` if it does not exist on the same network.
+          Redis integration is enabled by either endpoint variable;
+          `nextcloud_redis_socket_enabled` only selects the transport.
+
+          Choose exactly one target state:
+          - Unix socket: set `nextcloud_redis_socket_enabled: true`, set
+            `nextcloud_redis_socket_path_host`, and clear `nextcloud_redis_hostname`.
+            The effective port is always `0`; `nextcloud_redis_port` is ignored.
+          - TCP: set `nextcloud_redis_socket_enabled: false`, set
+            `nextcloud_redis_hostname`, clear `nextcloud_redis_socket_path_host`,
+            and set `nextcloud_redis_port` to a whole number from 1 through 65535.
+          - Disabled: clear both endpoint variables. The selector and port are ignored.
+
+          "Clear" means the effective value must be empty; remove its source or override
+          an inherited value with `""`.
+
+          A Unix socket must be available on the same host operating system that runs
+          the Nextcloud container. A TCP hostname must be reachable from inside the container.
+          {% if nextcloud_redis_socket_path_with_tcp_transport | bool and not nextcloud_redis_both_endpoints_configured | bool %}
+          Migration hint: version `v33.0.2-3` changed the selector default to `false`.
+          If this inventory intentionally used a socket and omitted the selector,
+          set `nextcloud_redis_socket_enabled: true` explicitly.
+          {% endif %}
+          See "Changing or disabling Redis integration" in `docs/configuring-nextcloud.md`.
       when: >-
-        nextcloud_redis_socket_path_host | string | length != 0 and
-        not nextcloud_redis_socket_enabled
+        nextcloud_redis_both_endpoints_configured | bool or
+        nextcloud_redis_hostname_with_socket_transport | bool or
+        nextcloud_redis_socket_path_with_tcp_transport | bool
 
     - name: Fail if Redis TCP port is invalid
       ansible.builtin.fail:
         msg: |-
-          Invalid Redis TCP port: `nextcloud_redis_socket_enabled` selects TCP and
-          `nextcloud_redis_port` is set to `{{ nextcloud_redis_port }}`, but TCP mode
-          requires a whole-number port from 1 through 65535.
-          Choose the desired state and make its settings agree:
-          - TCP: set `nextcloud_redis_port` to the port used by the configured
-            `nextcloud_redis_hostname`.
-          - Unix socket: set `nextcloud_redis_socket_enabled` to `true`, configure
-            `nextcloud_redis_socket_path_host`, and clear `nextcloud_redis_hostname`.
-            The effective port is normalized to `0`; `nextcloud_redis_port` is ignored.
-          - Disabled: clear both endpoint variables. The transport selector and port
-            are ignored when neither endpoint is configured.
+          Invalid Redis TCP port: `nextcloud_redis_port` resolves to
+          {{ nextcloud_redis_port | to_json }}, but a configured TCP endpoint requires
+          a whole-number port from 1 through 65535.
+
+          The role cannot infer whether the port or TCP endpoint is stale:
+          - Keep TCP: correct `nextcloud_redis_port`.
+          - Use a Unix socket: select socket mode, configure its host directory,
+            and clear the TCP hostname. The raw port is ignored and the effective
+            port is `0`.
+          - Disable Redis: clear both endpoints. The selector and port are ignored.
       when: >-
-        not nextcloud_redis_socket_enabled and
+        not nextcloud_redis_socket_enabled | bool and
         (
           nextcloud_redis_port | string | regex_search('^[0-9]+$') is none or
           nextcloud_redis_port | int < 1 or
