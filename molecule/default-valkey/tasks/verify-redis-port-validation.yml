@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 MASH project contributors
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+- name: Validate an invalid Redis TCP port
+  block:
+    - name: Run Nextcloud configuration validation with an invalid Redis TCP port
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        tasks_from: validate_config
+      vars:
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+        nextcloud_redis_hostname: valkey
+        nextcloud_redis_port: "{{ nextcloud_invalid_redis_port }}"
+
+    - name: Fail because the invalid Redis TCP port was accepted
+      ansible.builtin.fail:
+        msg: "Redis TCP port `{{ nextcloud_invalid_redis_port }}` was unexpectedly accepted"
+  rescue:
+    - name: Assert Redis TCP port validation reported the expected diagnostic
+      ansible.builtin.assert:
+        that:
+          - "'Invalid Redis TCP port' in ansible_failed_result.msg"
+          - nextcloud_invalid_redis_port | string in ansible_failed_result.msg
+        fail_msg: >-
+          Redis TCP port `{{ nextcloud_invalid_redis_port }}` failed for an
+          unexpected reason: {{ ansible_failed_result.msg }}
+        success_msg: "Redis TCP port `{{ nextcloud_invalid_redis_port }}` was rejected"

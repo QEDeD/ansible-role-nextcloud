@@ -162,6 +162,28 @@
         nextcloud_redis_socket_path_host | string | length != 0 and
         not nextcloud_redis_socket_enabled
 
+    - name: Fail if Redis TCP port is invalid
+      ansible.builtin.fail:
+        msg: |-
+          Invalid Redis TCP port: `nextcloud_redis_socket_enabled` selects TCP and
+          `nextcloud_redis_port` is set to `{{ nextcloud_redis_port }}`, but TCP mode
+          requires a whole-number port from 1 through 65535.
+          Choose the desired state and make its settings agree:
+          - TCP: set `nextcloud_redis_port` to the port used by the configured
+            `nextcloud_redis_hostname`.
+          - Unix socket: set `nextcloud_redis_socket_enabled` to `true`, configure
+            `nextcloud_redis_socket_path_host`, and clear `nextcloud_redis_hostname`.
+            The effective port is normalized to `0`; `nextcloud_redis_port` is ignored.
+          - Disabled: clear both endpoint variables. The transport selector and port
+            are ignored when neither endpoint is configured.
+      when: >-
+        not nextcloud_redis_socket_enabled and
+        (
+          nextcloud_redis_port | string | regex_search('^[0-9]+$') is none or
+          nextcloud_redis_port | int < 1 or
+          nextcloud_redis_port | int > 65535
+        )
+
 - name: Fail if SMTP settings are missing (and SMTP is enabled by setting host)
   ansible.builtin.fail:
     msg: >-

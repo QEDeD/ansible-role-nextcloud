@@ -213,6 +213,8 @@ nextcloud_redis_socket_path_host: ""
 nextcloud_redis_password: YOUR_REDIS_SERVER_PASSWORD_HERE
 ```
 
+Unix-socket mode always passes port `0` to Nextcloud. The mode-dependent default for `nextcloud_redis_port` is also `0` in this mode, but any explicit override is ignored while `nextcloud_redis_socket_enabled` is `true`. In TCP mode, `nextcloud_redis_port` specifies the server's TCP port.
+
 If TCP connection is preferred, connection via the Unix socket can be disabled by adding the following configuration to your `vars.yml` file:
 
 ```yaml
@@ -220,6 +222,10 @@ If TCP connection is preferred, connection via the Unix socket can be disabled b
 nextcloud_redis_socket_enabled: false
 
 nextcloud_redis_hostname: YOUR_REDIS_SERVER_HOSTNAME_HERE
+
+# Specify the Redis TCP port
+nextcloud_redis_port: 6379
+
 nextcloud_redis_password: YOUR_REDIS_SERVER_PASSWORD_HERE
 ```
 
