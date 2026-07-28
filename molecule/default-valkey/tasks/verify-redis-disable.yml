@@ -1,0 +1,187 @@
+# SPDX-FileCopyrightText: 2026 MASH project contributors
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+- name: Include systemd Docker base defaults for Nextcloud Redis transition tests
+  ansible.builtin.include_role:
+    name: com.devture.ansible.role.systemd_docker_base
+    public: true
+
+- name: Persist the configured Redis and memory-cache settings
+  vars:
+    # Keep this explicit because the Valkey role's public defaults belong to
+    # the converge play and are not automatically carried into this verify play.
+    nextcloud_redis_socket_path_host: /valkey/run
+    # This transition test is scoped to the Redis-owned persisted settings.
+    nextcloud_config_parameters: []
+  ansible.builtin.include_role:
+    name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+    public: true
+    tasks_from: adjust_config
+
+- name: Read persisted Redis-related key presence before disabling
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/env
+      - docker
+      - exec
+      - "--user={{ nextcloud_uid }}:{{ nextcloud_gid }}"
+      - nextcloud-server
+      - php
+      - -r
+      - >-
+        $CONFIG = [];
+        require '/var/www/html/config/config.php';
+        foreach (['redis', 'memcache.distributed', 'memcache.locking'] as $key) {
+          echo array_key_exists($key, $CONFIG) ? '1' : '0';
+        }
+  register: nextcloud_redis_keys_before_disabling
+  changed_when: false
+
+- name: Assert Redis-related settings were persisted before disabling
+  ansible.builtin.assert:
+    that:
+      - nextcloud_redis_keys_before_disabling.stdout == '111'
+    fail_msg: >-
+      Expected all Redis-related keys in the main config.php before disabling,
+      got `{{ nextcloud_redis_keys_before_disabling.stdout }}`
+
+- name: Delete persisted Redis configuration while its old connection is available
+  vars:
+    nextcloud_redis_hostname: ""
+    nextcloud_redis_socket_enabled: false
+    nextcloud_redis_socket_path_host: ""
+    nextcloud_config_parameters: []
+  ansible.builtin.include_role:
+    name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+    public: true
+    tasks_from: adjust_config
+
+- name: Read persisted Redis-related key presence after disabling
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/env
+      - docker
+      - exec
+      - "--user={{ nextcloud_uid }}:{{ nextcloud_gid }}"
+      - nextcloud-server
+      - php
+      - -r
+      - >-
+        $CONFIG = [];
+        require '/var/www/html/config/config.php';
+        foreach (['redis', 'memcache.distributed', 'memcache.locking'] as $key) {
+          echo array_key_exists($key, $CONFIG) ? '1' : '0';
+        }
+  register: nextcloud_redis_keys_after_disabling
+  changed_when: false
+
+- name: Assert all persisted Redis-related settings were deleted atomically
+  ansible.builtin.assert:
+    that:
+      - nextcloud_redis_keys_after_disabling.stdout == '000'
+    fail_msg: >-
+      Expected no Redis-related keys in the main config.php after disabling,
+      got `{{ nextcloud_redis_keys_after_disabling.stdout }}`
+
+- name: Install the disabled Redis target state
+  vars:
+    devture_playbook_help_container_retries_count: 3
+    devture_playbook_help_container_retries_delay: 1
+    nextcloud_redis_hostname: ""
+    nextcloud_redis_socket_enabled: false
+    nextcloud_redis_socket_path_host: ""
+    nextcloud_systemd_required_services_list_custom: []
+  ansible.builtin.include_role:
+    name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+    public: true
+    tasks_from: install
+
+- name: Reload systemd after installing the disabled target state
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart Nextcloud without Redis integration
+  ansible.builtin.systemd_service:
+    name: nextcloud-server.service
+    state: restarted
+
+- name: Stop Valkey after Nextcloud no longer depends on it
+  ansible.builtin.systemd_service:
+    name: valkey.service
+    state: stopped
+
+- name: Inspect the Nextcloud container after disabling Redis
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/env
+      - docker
+      - inspect
+      - nextcloud-server
+  register: nextcloud_container_after_redis_disabling
+  changed_when: false
+
+- name: Parse the Nextcloud container inspection result
+  ansible.builtin.set_fact:
+    nextcloud_container_after_redis_disabling_parsed: >-
+      {{ (nextcloud_container_after_redis_disabling.stdout | from_json) | first }}
+
+- name: Check the generated Redis session configuration after disabling
+  ansible.builtin.stat:
+    path: /nextcloud/redis-session.ini
+  register: nextcloud_redis_session_file_after_disabling
+
+- name: Read the Nextcloud systemd unit after disabling Redis
+  ansible.builtin.slurp:
+    src: /etc/systemd/system/nextcloud-server.service
+  register: nextcloud_systemd_unit_after_redis_disabling
+
+- name: Assert Redis runtime wiring was removed
+  ansible.builtin.assert:
+    that:
+      - >-
+        nextcloud_container_after_redis_disabling_parsed.Config.Env
+        | select('match', '^REDIS_HOST')
+        | list
+        | length == 0
+      - >-
+        nextcloud_container_after_redis_disabling_parsed.Mounts
+        | selectattr('Destination', 'in', ['/run-valkey', '/usr/local/etc/php/conf.d/redis-session.ini'])
+        | list
+        | length == 0
+      - not nextcloud_redis_session_file_after_disabling.stat.exists
+      - >-
+        'valkey.service'
+        not in (nextcloud_systemd_unit_after_redis_disabling.content | b64decode)
+
+- name: Query Nextcloud status after disabling Redis and stopping Valkey
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/env
+      - docker
+      - exec
+      - "--user={{ nextcloud_uid }}:{{ nextcloud_gid }}"
+      - nextcloud-server
+      - php
+      - /var/www/html/occ
+      - status
+      - --output=json
+  register: nextcloud_status_after_redis_disabling
+  changed_when: false
+
+- name: Assert Nextcloud remains installed after disabling Redis
+  ansible.builtin.assert:
+    that:
+      - (nextcloud_status_after_redis_disabling.stdout | from_json).installed
+
+- name: Wait for Nextcloud HTTP after disabling Redis and stopping Valkey
+  ansible.builtin.uri:
+    url: "http://localhost:80/"
+    method: GET
+    status_code: [200, 302]
+    follow_redirects: none
+  register: nextcloud_endpoint_after_redis_disabling
+  until: nextcloud_endpoint_after_redis_disabling.status in [200, 302]
+  retries: 36
+  delay: 5
