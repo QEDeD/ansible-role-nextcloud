@@ -24,6 +24,10 @@
         that:
           - "'Invalid Redis TCP port' in ansible_failed_result.msg"
           - nextcloud_invalid_redis_port | string in ansible_failed_result.msg
+          - "'cannot infer whether the port or TCP endpoint is stale' in ansible_failed_result.msg"
+          - "'Keep TCP:' in ansible_failed_result.msg"
+          - "'Use a Unix socket:' in ansible_failed_result.msg"
+          - "'Disable Redis:' in ansible_failed_result.msg"
         fail_msg: >-
           Redis TCP port `{{ nextcloud_invalid_redis_port }}` failed for an
           unexpected reason: {{ ansible_failed_result.msg }}

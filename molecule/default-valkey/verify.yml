@@ -143,11 +143,63 @@
             fail_msg: "Leading-zero Redis TCP port was not normalized"
             success_msg: "Leading-zero Redis TCP port was normalized"
 
+    - name: Verify conflicting Redis target states are explained without guessing intent
+      ansible.builtin.include_tasks: tasks/verify-redis-target-state-validation.yml
+      loop:
+        - name: both endpoint variables
+          hostname: valkey
+          socket_path_host: /valkey/run
+          socket_enabled: false
+          port: not-a-port
+          observed: >-
+            Both `nextcloud_redis_hostname` and `nextcloud_redis_socket_path_host`
+            are non-empty, so two alternative endpoints are configured.
+          migration_hint_expected: false
+        - name: TCP endpoint with Unix-socket selector
+          hostname: valkey
+          socket_path_host: ""
+          socket_enabled: true
+          port: not-a-port
+          observed: >-
+            `nextcloud_redis_socket_enabled` selects a Unix socket, but
+            `nextcloud_redis_hostname` configures a TCP endpoint.
+          migration_hint_expected: false
+        - name: Unix-socket endpoint with TCP selector
+          hostname: ""
+          socket_path_host: /valkey/run
+          socket_enabled: false
+          port: not-a-port
+          observed: >-
+            `nextcloud_redis_socket_path_host` configures a Unix-socket endpoint,
+            but `nextcloud_redis_socket_enabled` selects TCP.
+          migration_hint_expected: true
+      loop_control:
+        loop_var: nextcloud_redis_conflict_case
+        label: "{{ nextcloud_redis_conflict_case.name }}"
+
+    - name: Verify valid Redis TCP boundary ports are accepted
+      vars:
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+        nextcloud_redis_hostname: valkey
+        nextcloud_redis_port: "{{ nextcloud_valid_redis_tcp_port }}"
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+        tasks_from: validate_config
+      loop:
+        - 1
+        - 65535
+      loop_control:
+        loop_var: nextcloud_valid_redis_tcp_port
+
     - name: Verify invalid Redis TCP ports are rejected
       ansible.builtin.include_tasks: tasks/verify-redis-port-validation.yml
       loop:
         - 0
         - 65536
+        - -1
+        - "1.5"
         - not-a-port
       loop_control:
         loop_var: nextcloud_invalid_redis_port
