@@ -1,0 +1,323 @@
+# SPDX-FileCopyrightText: 2026 MASH project contributors
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+- name: Test repeatable Nextcloud uninstall cleanup
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    nextcloud_test_base_path: /nextcloud
+    nextcloud_test_data_marker_path: "{{ nextcloud_test_base_path }}/data/molecule-retained-data"
+    nextcloud_test_customized_src_path: "{{ nextcloud_test_base_path }}/customized-container-src"
+    nextcloud_test_redis_session_ini_path: "{{ nextcloud_test_base_path }}/redis-session.ini"
+    nextcloud_test_systemd_path: "{{ devture_systemd_docker_base_systemd_path }}"
+    nextcloud_test_network: nextcloud
+  tasks:
+    - name: Include support roles for Nextcloud uninstall tests
+      ansible.builtin.include_role:
+        name: "{{ role_name }}"
+        public: true
+      loop:
+        - com.devture.ansible.role.playbook_help
+        - com.devture.ansible.role.systemd_docker_base
+      loop_control:
+        loop_var: role_name
+
+    - name: Check Nextcloud uninstall test preconditions
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ nextcloud_test_base_path }}/env"
+        - "{{ nextcloud_test_base_path }}/labels"
+        - "{{ nextcloud_test_redis_session_ini_path }}"
+        - "{{ nextcloud_test_systemd_path }}/nextcloud-server.service"
+        - "{{ nextcloud_test_systemd_path }}/nextcloud-cron.service"
+        - "{{ nextcloud_test_systemd_path }}/nextcloud-cron.timer"
+      register: nextcloud_test_uninstall_preconditions
+
+    - name: Inspect the Nextcloud network before uninstall testing
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/env
+          - docker
+          - network
+          - inspect
+          - "{{ nextcloud_test_network }}"
+      register: nextcloud_test_network_before_uninstall
+      changed_when: false
+
+    - name: Assert convergence created the uninstall test preconditions
+      ansible.builtin.assert:
+        that:
+          - nextcloud_test_uninstall_preconditions.results[0].stat.exists
+          - nextcloud_test_uninstall_preconditions.results[1].stat.exists
+          - nextcloud_test_uninstall_preconditions.results[2].stat.exists
+          - nextcloud_test_uninstall_preconditions.results[3].stat.exists
+          - nextcloud_test_uninstall_preconditions.results[4].stat.exists
+          - nextcloud_test_uninstall_preconditions.results[5].stat.exists
+          - nextcloud_test_network_before_uninstall.rc == 0
+
+    - name: Create retained Nextcloud data marker
+      ansible.builtin.copy:
+        content: "This data must survive repeatable Nextcloud uninstallation.\n"
+        dest: "{{ nextcloud_test_data_marker_path }}"
+        mode: "0600"
+
+    - name: Create customized-source residue
+      ansible.builtin.file:
+        path: "{{ nextcloud_test_customized_src_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Create customized-source residue marker
+      ansible.builtin.copy:
+        content: "role-owned generated source residue\n"
+        dest: "{{ nextcloud_test_customized_src_path }}/molecule-residue"
+        mode: "0600"
+
+    # This reproduces an interrupted uninstall after the running container was
+    # stopped and its server unit was removed, but before other owned artifacts
+    # and the network were cleaned up.
+    - name: Stop Nextcloud before simulating an interrupted uninstall
+      ansible.builtin.systemd_service:
+        name: nextcloud-server.service
+        state: stopped
+        enabled: false
+
+    - name: Remove only the Nextcloud server unit to simulate interruption
+      ansible.builtin.file:
+        path: "{{ nextcloud_test_systemd_path }}/nextcloud-server.service"
+        state: absent
+
+    - name: Reload systemd after simulating the interrupted uninstall
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Run first cleanup with the server unit already absent
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+      vars:
+        nextcloud_enabled: false
+        nextcloud_redis_hostname: ""
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+        devture_systemd_docker_base_container_network_creation_method: ansible-module
+
+    - name: Check paths after first interrupted-uninstall cleanup
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ nextcloud_test_base_path }}/env"
+        - "{{ nextcloud_test_base_path }}/labels"
+        - "{{ nextcloud_test_customized_src_path }}"
+        - "{{ nextcloud_test_redis_session_ini_path }}"
+        - "{{ nextcloud_test_systemd_path }}/nextcloud-server.service"
+        - "{{ nextcloud_test_systemd_path }}/nextcloud-cron.service"
+        - "{{ nextcloud_test_systemd_path }}/nextcloud-cron.timer"
+        - "{{ nextcloud_test_systemd_path }}/nextcloud-app-update.service"
+        - "{{ nextcloud_test_systemd_path }}/nextcloud-app-update.timer"
+        - "{{ nextcloud_test_data_marker_path }}"
+      register: nextcloud_test_first_cleanup_paths
+
+    - name: Inspect the Nextcloud network after first cleanup
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/env
+          - docker
+          - network
+          - inspect
+          - "{{ nextcloud_test_network }}"
+      register: nextcloud_test_network_after_first_cleanup
+      changed_when: false
+      failed_when: false
+
+    - name: Assert first cleanup removes owned artifacts and retains data
+      ansible.builtin.assert:
+        that:
+          - not nextcloud_test_first_cleanup_paths.results[0].stat.exists
+          - not nextcloud_test_first_cleanup_paths.results[1].stat.exists
+          - not nextcloud_test_first_cleanup_paths.results[2].stat.exists
+          - not nextcloud_test_first_cleanup_paths.results[3].stat.exists
+          - not nextcloud_test_first_cleanup_paths.results[4].stat.exists
+          - not nextcloud_test_first_cleanup_paths.results[5].stat.exists
+          - not nextcloud_test_first_cleanup_paths.results[6].stat.exists
+          - not nextcloud_test_first_cleanup_paths.results[7].stat.exists
+          - not nextcloud_test_first_cleanup_paths.results[8].stat.exists
+          - nextcloud_test_first_cleanup_paths.results[9].stat.exists
+          - nextcloud_test_network_after_first_cleanup.rc != 0
+
+    - name: Recreate role-owned support-file residues
+      ansible.builtin.copy:
+        content: "role-owned generated residue\n"
+        dest: "{{ item }}"
+        mode: "0600"
+      loop:
+        - "{{ nextcloud_test_base_path }}/env"
+        - "{{ nextcloud_test_base_path }}/labels"
+        - "{{ nextcloud_test_redis_session_ini_path }}"
+
+    - name: Recreate customized-source residue
+      ansible.builtin.file:
+        path: "{{ nextcloud_test_customized_src_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Recreate the Nextcloud network via the Ansible module
+      community.docker.docker_network:
+        name: "{{ nextcloud_test_network }}"
+        state: present
+
+    - name: Repeat cleanup via the Ansible network module
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+      vars:
+        nextcloud_enabled: false
+        nextcloud_redis_hostname: ""
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+        devture_systemd_docker_base_container_network_creation_method: ansible-module
+
+    - name: Repeat Ansible-module cleanup with all owned artifacts already absent
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+      vars:
+        nextcloud_enabled: false
+        nextcloud_redis_hostname: ""
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+        devture_systemd_docker_base_container_network_creation_method: ansible-module
+
+    - name: Check repeatable Ansible-module cleanup state
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ nextcloud_test_base_path }}/env"
+        - "{{ nextcloud_test_base_path }}/labels"
+        - "{{ nextcloud_test_customized_src_path }}"
+        - "{{ nextcloud_test_redis_session_ini_path }}"
+        - "{{ nextcloud_test_data_marker_path }}"
+      register: nextcloud_test_repeated_module_cleanup_paths
+
+    - name: Inspect the network after repeatable Ansible-module cleanup
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/env
+          - docker
+          - network
+          - inspect
+          - "{{ nextcloud_test_network }}"
+      register: nextcloud_test_network_after_repeated_module_cleanup
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Ansible-module cleanup is repeatable and retains data
+      ansible.builtin.assert:
+        that:
+          - not nextcloud_test_repeated_module_cleanup_paths.results[0].stat.exists
+          - not nextcloud_test_repeated_module_cleanup_paths.results[1].stat.exists
+          - not nextcloud_test_repeated_module_cleanup_paths.results[2].stat.exists
+          - not nextcloud_test_repeated_module_cleanup_paths.results[3].stat.exists
+          - nextcloud_test_repeated_module_cleanup_paths.results[4].stat.exists
+          - nextcloud_test_network_after_repeated_module_cleanup.rc != 0
+
+    - name: Recreate the Nextcloud network for command-method cleanup
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/env
+          - docker
+          - network
+          - create
+          - "{{ nextcloud_test_network }}"
+      register: nextcloud_test_network_command_creation
+      changed_when: nextcloud_test_network_command_creation.rc == 0
+
+    - name: Clean the Nextcloud network via the command method
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+      vars:
+        nextcloud_enabled: false
+        nextcloud_redis_hostname: ""
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+        devture_systemd_docker_base_container_network_creation_method: command
+
+    - name: Repeat command-method cleanup with the network already absent
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+      vars:
+        nextcloud_enabled: false
+        nextcloud_redis_hostname: ""
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+        devture_systemd_docker_base_container_network_creation_method: command
+
+    - name: Inspect state after repeatable command-method cleanup
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/env
+          - docker
+          - network
+          - inspect
+          - "{{ nextcloud_test_network }}"
+      register: nextcloud_test_network_after_repeated_command_cleanup
+      changed_when: false
+      failed_when: false
+
+    - name: Check retained data after repeatable command-method cleanup
+      ansible.builtin.stat:
+        path: "{{ nextcloud_test_data_marker_path }}"
+      register: nextcloud_test_data_after_repeated_command_cleanup
+
+    - name: Assert command-method cleanup is repeatable and retains data
+      ansible.builtin.assert:
+        that:
+          - nextcloud_test_network_after_repeated_command_cleanup.rc != 0
+          - nextcloud_test_data_after_repeated_command_cleanup.stat.exists
+
+    - name: Remove retained Nextcloud data test marker
+      ansible.builtin.file:
+        path: "{{ nextcloud_test_data_marker_path }}"
+        state: absent
+
+- name: Restore Nextcloud after repeatable uninstall cleanup tests
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Include roles for Nextcloud Molecule tests
+      ansible.builtin.include_role:
+        name: "{{ role_name }}"
+        public: true
+      loop:
+        - com.devture.ansible.role.playbook_help
+        - com.devture.ansible.role.systemd_docker_base
+        - ansible-role-valkey
+        - "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+      loop_control:
+        loop_var: role_name
+
+- name: Ensure restored Nextcloud service is started
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Ensure systemd daemon is reloaded
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Ensure Valkey systemd service is started
+      ansible.builtin.systemd_service:
+        name: valkey.service
+        state: started
+
+    - name: Ensure Nextcloud server systemd service is started
+      ansible.builtin.systemd_service:
+        name: nextcloud-server.service
+        state: started
