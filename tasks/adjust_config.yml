@@ -130,10 +130,10 @@
         owner: "{{ nextcloud_uid }}"
         group: "{{ nextcloud_gid }}"
 
-# Keep this as the final system-configuration write. The Nextcloud Docker image's
-# redis.config.php contributes Redis settings to every OCC process while REDIS_HOST
-# is set, so separate deletes or a later write can serialize an already-deleted
-# value again.
+# Keep this as the final system-configuration reconciliation sequence. The
+# Nextcloud Docker image's redis.config.php contributes Redis settings to every
+# OCC process while REDIS_HOST is set, so separate deletes or an unrelated later
+# write with that environment still set can serialize a deleted value again.
 - name: Reconcile persisted Nextcloud Redis configuration if it is not configured
   when: "not nextcloud_redis_is_configured | bool"
   block:
