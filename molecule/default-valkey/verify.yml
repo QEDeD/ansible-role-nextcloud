@@ -177,6 +177,9 @@
         fail_msg: "Nextcloud did not respond as expected ({{ nextcloud_endpoint.status | default('no response') }})"
         success_msg: "Nextcloud responded with {{ nextcloud_endpoint.status }}"
 
+    - name: Verify disabling Nextcloud Redis integration
+      ansible.builtin.include_tasks: tasks/verify-redis-disable.yml
+
     - name: Show Nextcloud systemd service status summary
       ansible.builtin.debug:
         msg:
