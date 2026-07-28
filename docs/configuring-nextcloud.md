@@ -225,6 +225,14 @@ nextcloud_redis_password: YOUR_REDIS_SERVER_PASSWORD_HERE
 
 Make sure to replace `YOUR_REDIS_SERVER_HOSTNAME_HERE` and `YOUR_REDIS_SERVER_PASSWORD_HERE` with your own values.
 
+#### Disabling Redis integration on an existing deployment
+
+To stop using Redis, clear both `nextcloud_redis_hostname` and `nextcloud_redis_socket_path_host`. Also remove any `redis`, `memcache.distributed`, or `memcache.locking` entries which you explicitly added to `nextcloud_config_parameters_custom`; explicit custom parameters continue to take precedence over role-managed values.
+
+Keep the old Redis server and connection available while you first run the playbook with the `adjust-nextcloud-config` tag. This removes Nextcloud's role-managed `redis`, `memcache.distributed`, and `memcache.locking` settings in one configuration update. Then rerun the installation to remove the container environment, socket mount, session configuration, and any Redis-only network or systemd dependency which you also removed from your configuration.
+
+After both runs, use the `query-status-nextcloud` tag and review Nextcloud's administration overview for cache or file-locking warnings. Disabling this integration does not stop or uninstall the external Redis-compatible server and does not delete its data.
+
 See below for details:
 
 - <https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/caching_configuration.html>
