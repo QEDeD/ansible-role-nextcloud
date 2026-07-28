@@ -46,6 +46,43 @@
         fail_msg: "Nextcloud did not respond as expected ({{ nextcloud_endpoint.status | default('no response') }})"
         success_msg: "Nextcloud responded with {{ nextcloud_endpoint.status }}"
 
+    - name: Read the Nextcloud systemd unit
+      ansible.builtin.slurp:
+        src: /etc/systemd/system/nextcloud-server.service
+      register: nextcloud_systemd_unit
+
+    - name: Assert pre-start cleanup targets the server container
+      ansible.builtin.assert:
+        that:
+          - >-
+            (
+              (nextcloud_systemd_unit.content | b64decode)
+              | regex_search('docker stop -t [^ ]+ nextcloud-server')
+            )
+            is not none
+          - >-
+            'docker rm -f nextcloud-server'
+            in (nextcloud_systemd_unit.content | b64decode)
+          - >-
+            'docker container inspect nextcloud-server'
+            in (nextcloud_systemd_unit.content | b64decode)
+
+    - name: Restart Nextcloud to exercise pre-start cleanup
+      ansible.builtin.systemd_service:
+        name: nextcloud-server.service
+        state: restarted
+
+    - name: Wait for Nextcloud HTTP after restarting
+      ansible.builtin.uri:
+        url: "http://localhost:80/"
+        method: GET
+        status_code: [200, 302]
+        follow_redirects: none
+      register: nextcloud_endpoint_after_restart
+      until: nextcloud_endpoint_after_restart.status in [200, 302]
+      retries: 36
+      delay: 5
+
     - name: Show Nextcloud systemd service status summary
       ansible.builtin.debug:
         msg:
