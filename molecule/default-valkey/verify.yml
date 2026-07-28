@@ -103,6 +103,9 @@
           `{{ nextcloud_redis_persisted_port.stdout | trim }}` instead of `0`
         success_msg: "Nextcloud persisted Redis socket port is normalized to zero"
 
+    - name: Verify Nextcloud Redis password handling
+      ansible.builtin.include_tasks: tasks/verify-redis-password.yml
+
     - name: Verify a custom Redis TCP port remains effective
       vars:
         nextcloud_redis_socket_enabled: false

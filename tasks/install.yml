@@ -36,6 +36,9 @@
     src: "{{ role_path }}/templates/{{ item }}.j2"
     dest: "{{ nextcloud_base_path }}/{{ item }}"
     mode: "0640"
+  # The environment file contains credentials. Keep diffs disabled for the
+  # complete loop so a future support-file item cannot bypass this protection.
+  diff: false
   with_items:
     - env
     - labels

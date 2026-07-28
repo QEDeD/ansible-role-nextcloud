@@ -30,6 +30,7 @@ provisioner:
       all:
         # Helper variables
         nextcloud_debug_service_enabled: false
+        nextcloud_test_redis_password: "role-test-'password"
 
         # Variables for Nextcloud
         nextcloud_uid: 1000
@@ -45,6 +46,7 @@ provisioner:
         # Variables required for Nextcloud to connect to the Valkey data-store (via Unix socket)
         nextcloud_redis_socket_enabled: true
         nextcloud_redis_socket_path_host: "{{ valkey_run_path }}"
+        nextcloud_redis_password: "{{ nextcloud_test_redis_password }}"
         # Deliberately retain a TCP value to verify that socket mode normalizes it to `0`
         nextcloud_redis_port: 6379
         nextcloud_systemd_required_services_list_custom:
@@ -54,6 +56,7 @@ provisioner:
         valkey_uid: 1000
         valkey_gid: 1000
         valkey_arch: amd64
+        valkey_connection_password: "{{ nextcloud_test_redis_password }}"
   env:
     # Workaround for https://github.com/ansible/molecule/issues/4391
     ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..:/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/roles

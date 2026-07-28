@@ -452,6 +452,8 @@ nextcloud_config_dbpassword: "{{ ({'postgres': nextcloud_database_postgres_passw
 # Specify Redis configuration
 # See: https://docs.nextcloud.com/server/stable/admin_manual/configuration_server/caching_configuration.html#id2
 nextcloud_redis_hostname: ""
+# The password is written to a line-oriented Docker environment file, so it
+# must not contain carriage returns, line feeds, or NUL characters.
 nextcloud_redis_password: ""
 # Specify the Redis port. The default follows the selected transport: `0` for
 # a Unix socket and `6379` for TCP. An explicit value is used only in TCP mode;
