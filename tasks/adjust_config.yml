@@ -137,7 +137,7 @@
 - name: Reconcile persisted Nextcloud Redis configuration if it is not configured
   when: "not nextcloud_redis_is_configured | bool"
   block:
-    - name: Delete role-managed Nextcloud Redis configuration atomically
+    - name: Delete role-managed Nextcloud Redis configuration in one import
       ansible.builtin.command:
         cmd: |-
           {{ devture_systemd_docker_base_host_command_docker }} exec --interactive
