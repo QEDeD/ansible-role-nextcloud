@@ -453,6 +453,9 @@ nextcloud_config_dbpassword: "{{ ({'postgres': nextcloud_database_postgres_passw
 # See: https://docs.nextcloud.com/server/stable/admin_manual/configuration_server/caching_configuration.html#id2
 nextcloud_redis_hostname: ""
 nextcloud_redis_password: ""
+# Specify the Redis port. Its default follows the selected transport: `0` for
+# a Unix socket and `6379` for TCP. An explicit override must match the selected
+# transport whenever Redis integration is configured.
 nextcloud_redis_port: "{{ '0' if nextcloud_redis_socket_enabled else '6379' }}"
 
 # Derived from endpoint presence; the transport selector alone does not enable Redis integration

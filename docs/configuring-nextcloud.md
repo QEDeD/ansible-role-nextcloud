@@ -207,6 +207,14 @@ Nextcloud recommends to set up memory caching for improving performance and prev
 
 The role supports connecting to Redis through either a Unix socket or TCP. TCP is the default transport (`nextcloud_redis_socket_enabled: false`), but Redis integration is not enabled until you configure an endpoint. Choose exactly one of the following configurations.
 
+| Desired state | `nextcloud_redis_socket_enabled` | Endpoint variable | Effective port | Placement |
+| --- | --- | --- | --- | --- |
+| Unix socket | `true` | `nextcloud_redis_socket_path_host` and a matching socket filename | `0` | Same Docker host |
+| TCP | `false` | `nextcloud_redis_hostname` | `nextcloud_redis_port` (default `6379`) | Same or another Docker host |
+| Disabled | Ignored | Neither endpoint | Ignored | Not applicable |
+
+The **Docker host** is the server or VM operating-system environment in which Docker runs. A remote Redis-compatible server therefore requires TCP, but TCP may also be used for containers on the same Docker host.
+
 To connect through a Unix socket, add the following configuration to your `vars.yml` file:
 
 ```yaml
@@ -216,11 +224,17 @@ nextcloud_redis_socket_enabled: true
 # Specify the host directory containing the Redis Unix socket (bind-mount source)
 nextcloud_redis_socket_path_host: /path/to/redis-socket-directory
 
+# Match the socket filename inside that directory (default shown)
+nextcloud_redis_socket_path: /valkey.sock
+
+# Unix sockets require port 0
+nextcloud_redis_port: 0
+
 # Specify the Redis password if the server requires authentication
 nextcloud_redis_password: YOUR_REDIS_SERVER_PASSWORD_HERE
 ```
 
-In Unix-socket mode, omit or remove `nextcloud_redis_hostname`. Because the socket directory is bind-mounted into the Nextcloud container, the Redis-compatible server must run on the same Docker host. Replace `/path/to/redis-socket-directory` with your own value. If the server requires authentication, replace `YOUR_REDIS_SERVER_PASSWORD_HERE` with its password; otherwise omit `nextcloud_redis_password`.
+In Unix-socket mode, omit or remove `nextcloud_redis_hostname`. Because the socket directory is bind-mounted into the Nextcloud container, the Redis-compatible server must run on the same Docker host. Replace `/path/to/redis-socket-directory` with your own value. The role combines that directory with `nextcloud_redis_socket_path`; keep `/valkey.sock` only if the directory contains a socket with that filename, otherwise override it with the actual filename (including the leading `/`). If the server requires authentication, replace `YOUR_REDIS_SERVER_PASSWORD_HERE` with its password; otherwise omit `nextcloud_redis_password`.
 
 To connect through TCP, add the following configuration to your `vars.yml` file:
 
@@ -231,21 +245,26 @@ nextcloud_redis_socket_enabled: false
 # Specify the Redis hostname
 nextcloud_redis_hostname: YOUR_REDIS_SERVER_HOSTNAME_HERE
 
+# Specify the Redis TCP port
+nextcloud_redis_port: 6379
+
 # Specify the Redis password if the server requires authentication
 nextcloud_redis_password: YOUR_REDIS_SERVER_PASSWORD_HERE
 ```
 
-In TCP mode, omit or remove `nextcloud_redis_socket_path_host`. The hostname must be reachable from the Nextcloud container. If it identifies another container, add an appropriate shared network to `nextcloud_container_additional_networks_custom` if needed. Replace `YOUR_REDIS_SERVER_HOSTNAME_HERE` with your own value. If the server requires authentication, replace `YOUR_REDIS_SERVER_PASSWORD_HERE` with its password; otherwise omit `nextcloud_redis_password`.
+In TCP mode, omit or remove `nextcloud_redis_socket_path_host`. The hostname must be reachable from the Nextcloud container. If it identifies another container on the same Docker host, add an appropriate shared network to `nextcloud_container_additional_networks_custom` if needed. A server on another Docker host must expose and secure a reachable TCP endpoint separately; a shared Docker network connects containers only on the same Docker host. Replace `YOUR_REDIS_SERVER_HOSTNAME_HERE` with your own value. If the server requires authentication, replace `YOUR_REDIS_SERVER_PASSWORD_HERE` with its password; otherwise omit `nextcloud_redis_password`.
 
 #### Changing or disabling Redis integration
 
 Version `v33.0.2-3` changed the default value of `nextcloud_redis_socket_enabled` from `true` to `false`. If an existing configuration sets `nextcloud_redis_socket_path_host` and relied on the earlier implicit socket selection, add `nextcloud_redis_socket_enabled: true` to keep using the socket.
 
+Configurations based on documentation before `v33.0.1-1` may explicitly set `nextcloud_redis_port: 6379`. When switching such a configuration to a Unix socket, remove that override so the mode-dependent `0` default applies, or set it to `0`. When switching to TCP, remove a stale explicit `0` so the `6379` default applies, or set the server's actual TCP port.
+
 When changing the integration, choose the complete target state:
 
-- Unix socket: set `nextcloud_redis_socket_enabled: true`, configure `nextcloud_redis_socket_path_host`, and omit or remove `nextcloud_redis_hostname`.
-- TCP: set `nextcloud_redis_socket_enabled: false`, configure `nextcloud_redis_hostname`, and omit or remove `nextcloud_redis_socket_path_host`.
-- Disabled: omit or remove both endpoint variables and any Redis-only entries in `nextcloud_container_additional_networks_custom` and `nextcloud_systemd_required_services_list_custom`. The transport selector has no effect when neither endpoint is configured.
+- Unix socket: set `nextcloud_redis_socket_enabled: true`, configure `nextcloud_redis_socket_path_host` and the matching socket filename, omit or remove `nextcloud_redis_hostname`, and ensure the effective `nextcloud_redis_port` is `0`. Remove a stale port override or set it to `0`.
+- TCP: set `nextcloud_redis_socket_enabled: false`, configure `nextcloud_redis_hostname` and its TCP port (default `6379`), and omit or remove `nextcloud_redis_socket_path_host`.
+- Disabled: omit or remove both endpoint variables and any Redis-only entries in `nextcloud_container_additional_networks_custom` and `nextcloud_systemd_required_services_list_custom`. The transport selector and port have no effect when neither endpoint is configured.
 
 On an existing deployment, rerun the installation after changing these settings, then run the playbook with the `adjust-nextcloud-config` tag as described in [Update configuration](#update-configuration). The installation updates the container configuration, while the adjustment updates or removes Nextcloud's persisted Redis and memory-cache settings.
 
@@ -391,14 +410,13 @@ To get started, open the URL with a web browser, and follow the set up wizard. I
 
 ### Update configuration
 
-After finalizing the installation, update the configuration (URL paths, trusted reverse-proxies, etc.) by running the command below:
+After the initial installation, run this command once to apply settings which the role writes to Nextcloud's persisted configuration:
 
 ```sh
 ansible-playbook -i inventory/hosts setup.yml --tags=adjust-nextcloud-config
 ```
 
->[!NOTE]
-> You should re-run the command every time the Nextcloud version is updated.
+These settings include URL and path settings, trusted reverse proxies, Redis and memory-cache settings, and values from `nextcloud_config_parameters_*`. Re-run the command after every Nextcloud version update and whenever you change one of these settings.
 
 You can open the URL with a web browser to log in to the instance. See [this official guide](https://docs.nextcloud.com/server/latest/admin_manual/contents.html) to get started.
 

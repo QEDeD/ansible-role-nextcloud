@@ -139,15 +139,22 @@
           The role cannot determine which conflicting setting is stale or which target state
           you intend: Unix socket, TCP, or disabled.
           Choose the intended state and make all related settings agree:
-          For endpoint variables below, clear means remove the inventory override or set it to an empty string.
+          For endpoint variables below, clear means make the effective value empty.
+          Remove the definition which supplies the value, or override an inherited value
+          with an empty string at the appropriate scope.
           - Unix socket: set `nextcloud_redis_socket_enabled` to `true`, set
-            `nextcloud_redis_socket_path_host`, and clear `nextcloud_redis_hostname`.
+            `nextcloud_redis_socket_path_host`, ensure `nextcloud_redis_socket_path`
+            matches the socket filename, clear `nextcloud_redis_hostname`, and ensure
+            the effective `nextcloud_redis_port` is `0` by removing a stale override
+            or setting it to `0`.
           - TCP: set `nextcloud_redis_socket_enabled` to `false`, set
-            `nextcloud_redis_hostname`, and clear `nextcloud_redis_socket_path_host`.
+            `nextcloud_redis_hostname`, clear `nextcloud_redis_socket_path_host`, and
+            ensure the effective `nextcloud_redis_port` is the endpoint's TCP port
+            (`6379` by default).
           - Disabled: clear both endpoint variables. Also remove any Redis-only entries
             from `nextcloud_container_additional_networks_custom` and
-            `nextcloud_systemd_required_services_list_custom`. `nextcloud_redis_socket_enabled`
-            selects the transport only and is ignored when neither endpoint is configured.
+            `nextcloud_systemd_required_services_list_custom`. The transport selector
+            and `nextcloud_redis_port` are ignored when neither endpoint is configured.
           For a Unix socket, the socket directory must be available on the same Docker
           host as the Nextcloud container so it can be bind-mounted. Remove any Redis-only
           shared-network entry if it is no longer needed.
@@ -166,15 +173,22 @@
           The role cannot determine which conflicting setting is stale or which target state
           you intend: Unix socket, TCP, or disabled.
           Choose the intended state and make all related settings agree:
-          For endpoint variables below, clear means remove the inventory override or set it to an empty string.
+          For endpoint variables below, clear means make the effective value empty.
+          Remove the definition which supplies the value, or override an inherited value
+          with an empty string at the appropriate scope.
           - Unix socket: keep `nextcloud_redis_socket_enabled` set to `true`, set
-            `nextcloud_redis_socket_path_host`, and clear `nextcloud_redis_hostname`.
+            `nextcloud_redis_socket_path_host`, ensure `nextcloud_redis_socket_path`
+            matches the socket filename, clear `nextcloud_redis_hostname`, and ensure
+            the effective `nextcloud_redis_port` is `0` by removing a stale override
+            or setting it to `0`.
           - TCP: set `nextcloud_redis_socket_enabled` to `false`, keep
-            `nextcloud_redis_hostname`, and clear `nextcloud_redis_socket_path_host`.
+            `nextcloud_redis_hostname`, clear `nextcloud_redis_socket_path_host`, and
+            ensure the effective `nextcloud_redis_port` is the endpoint's TCP port
+            (`6379` by default).
           - Disabled: clear both endpoint variables. Also remove any Redis-only entries
             from `nextcloud_container_additional_networks_custom` and
-            `nextcloud_systemd_required_services_list_custom`. `nextcloud_redis_socket_enabled`
-            selects the transport only and is ignored when neither endpoint is configured.
+            `nextcloud_systemd_required_services_list_custom`. The transport selector
+            and `nextcloud_redis_port` are ignored when neither endpoint is configured.
           For a Unix socket, the socket directory must be available on the same Docker
           host as the Nextcloud container so it can be bind-mounted. Remove any Redis-only
           shared-network entry if it is no longer needed.
@@ -193,15 +207,22 @@
           The role cannot determine which conflicting setting is stale or which target state
           you intend: Unix socket, TCP, or disabled.
           Choose the intended state and make all related settings agree:
-          For endpoint variables below, clear means remove the inventory override or set it to an empty string.
+          For endpoint variables below, clear means make the effective value empty.
+          Remove the definition which supplies the value, or override an inherited value
+          with an empty string at the appropriate scope.
           - Unix socket: set `nextcloud_redis_socket_enabled` to `true`, keep
-            `nextcloud_redis_socket_path_host`, and clear `nextcloud_redis_hostname`.
+            `nextcloud_redis_socket_path_host`, ensure `nextcloud_redis_socket_path`
+            matches the socket filename, clear `nextcloud_redis_hostname`, and ensure
+            the effective `nextcloud_redis_port` is `0` by removing a stale override
+            or setting it to `0`.
           - TCP: keep `nextcloud_redis_socket_enabled` set to `false`, set
-            `nextcloud_redis_hostname`, and clear `nextcloud_redis_socket_path_host`.
+            `nextcloud_redis_hostname`, clear `nextcloud_redis_socket_path_host`, and
+            ensure the effective `nextcloud_redis_port` is the endpoint's TCP port
+            (`6379` by default).
           - Disabled: clear both endpoint variables. Also remove any Redis-only entries
             from `nextcloud_container_additional_networks_custom` and
-            `nextcloud_systemd_required_services_list_custom`. `nextcloud_redis_socket_enabled`
-            selects the transport only and is ignored when neither endpoint is configured.
+            `nextcloud_systemd_required_services_list_custom`. The transport selector
+            and `nextcloud_redis_port` are ignored when neither endpoint is configured.
           For a Unix socket, the socket directory must be available on the same Docker
           host as the Nextcloud container so it can be bind-mounted. Remove any Redis-only
           shared-network entry if it is no longer needed.
