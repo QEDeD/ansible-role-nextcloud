@@ -233,7 +233,7 @@ Make sure to replace `YOUR_REDIS_SERVER_HOSTNAME_HERE` and `YOUR_REDIS_SERVER_PA
 
 #### Disabling Redis integration on an existing deployment
 
-To stop using Redis, clear both `nextcloud_redis_hostname` and `nextcloud_redis_socket_path_host`. Also remove any `redis`, `memcache.distributed`, or `memcache.locking` entries which you explicitly added to `nextcloud_config_parameters_custom`; explicit custom parameters continue to take precedence over role-managed values.
+To stop using Redis, clear both `nextcloud_redis_hostname` and `nextcloud_redis_socket_path_host`. Also remove any `redis`, `memcache.distributed`, or `memcache.locking` entries which you explicitly added through `nextcloud_config_parameters` (normally with `nextcloud_config_parameters_custom`); explicit custom parameters continue to take precedence over role-managed values.
 
 Keep the old Redis server and connection available while you first run the playbook with the `adjust-nextcloud-config` tag. This removes Nextcloud's role-managed `redis`, `memcache.distributed`, and `memcache.locking` settings in one configuration update. Then rerun the installation to remove the container environment, socket mount, session configuration, and any Redis-only network or systemd dependency which you also removed from your configuration.
 

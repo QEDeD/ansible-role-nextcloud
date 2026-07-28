@@ -47,63 +47,6 @@
       Expected all Redis-related keys in the main config.php before disabling,
       got `{{ nextcloud_redis_keys_before_disabling.stdout }}`
 
-- name: Preserve explicitly configured Redis-related custom parameters while disabling
-  vars:
-    nextcloud_redis_hostname: ""
-    nextcloud_redis_socket_enabled: false
-    nextcloud_redis_socket_path_host: ""
-    nextcloud_config_parameters:
-      - key: redis
-        value: >-
-          '{"host":"/run-valkey/valkey.sock","port":0}'
-        type: json
-      - key: memcache.distributed
-        value: >-
-          '\OC\Memcache\Redis'
-        type: string
-      - key: memcache.locking
-        value: >-
-          '\OC\Memcache\Redis'
-        type: string
-  ansible.builtin.include_role:
-    name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
-    public: true
-    tasks_from: adjust_config
-
-- name: Read explicitly configured Redis-related custom parameters after disabling
-  ansible.builtin.command:
-    argv:
-      - /usr/bin/env
-      - docker
-      - exec
-      - "--user={{ nextcloud_uid }}:{{ nextcloud_gid }}"
-      - nextcloud-server
-      - php
-      - -r
-      - >-
-        $CONFIG = [];
-        require '/var/www/html/config/config.php';
-        echo json_encode([
-          'redis' => $CONFIG['redis'] ?? null,
-          'distributed' => $CONFIG['memcache.distributed'] ?? null,
-          'locking' => $CONFIG['memcache.locking'] ?? null,
-        ]);
-  register: nextcloud_custom_redis_configuration_after_disabling
-  changed_when: false
-
-- name: Parse explicitly configured Redis-related custom parameters
-  ansible.builtin.set_fact:
-    nextcloud_custom_redis_configuration_after_disabling_parsed: >-
-      {{ nextcloud_custom_redis_configuration_after_disabling.stdout | from_json }}
-
-- name: Assert explicitly configured Redis-related custom parameters take precedence
-  ansible.builtin.assert:
-    that:
-      - nextcloud_custom_redis_configuration_after_disabling_parsed.redis.host == '/run-valkey/valkey.sock'
-      - nextcloud_custom_redis_configuration_after_disabling_parsed.redis.port == 0
-      - nextcloud_custom_redis_configuration_after_disabling_parsed.distributed == '\OC\Memcache\Redis'
-      - nextcloud_custom_redis_configuration_after_disabling_parsed.locking == '\OC\Memcache\Redis'
-
 - name: Delete persisted Redis configuration while its old connection is available
   vars:
     nextcloud_redis_hostname: ""
@@ -277,3 +220,63 @@
   until: nextcloud_endpoint_after_redis_disabling.status in [200, 302]
   retries: 36
   delay: 5
+
+# Keep this as the final scenario: the deliberately unreachable custom Redis
+# endpoint proves persisted-value precedence without bootstrapping Nextcloud
+# again and attempting a connection.
+- name: Preserve explicitly configured Redis-related custom parameters while disabled
+  vars:
+    nextcloud_redis_hostname: ""
+    nextcloud_redis_socket_enabled: false
+    nextcloud_redis_socket_path_host: ""
+    nextcloud_config_parameters:
+      - key: redis
+        value: >-
+          '{"host":"custom-redis.invalid","port":6380}'
+        type: json
+      - key: memcache.distributed
+        value: >-
+          '\OC\Memcache\Redis'
+        type: string
+      - key: memcache.locking
+        value: >-
+          '\OC\Memcache\Redis'
+        type: string
+  ansible.builtin.include_role:
+    name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+    public: true
+    tasks_from: adjust_config
+
+- name: Read explicitly configured Redis-related custom parameters after disabling
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/env
+      - docker
+      - exec
+      - "--user={{ nextcloud_uid }}:{{ nextcloud_gid }}"
+      - nextcloud-server
+      - php
+      - -r
+      - >-
+        $CONFIG = [];
+        require '/var/www/html/config/config.php';
+        echo json_encode([
+          'redis' => $CONFIG['redis'] ?? null,
+          'distributed' => $CONFIG['memcache.distributed'] ?? null,
+          'locking' => $CONFIG['memcache.locking'] ?? null,
+        ]);
+  register: nextcloud_custom_redis_configuration_after_disabling
+  changed_when: false
+
+- name: Parse explicitly configured Redis-related custom parameters
+  ansible.builtin.set_fact:
+    nextcloud_custom_redis_configuration_after_disabling_parsed: >-
+      {{ nextcloud_custom_redis_configuration_after_disabling.stdout | from_json }}
+
+- name: Assert explicitly configured Redis-related custom parameters take precedence
+  ansible.builtin.assert:
+    that:
+      - nextcloud_custom_redis_configuration_after_disabling_parsed.redis.host == 'custom-redis.invalid'
+      - nextcloud_custom_redis_configuration_after_disabling_parsed.redis.port == 6380
+      - nextcloud_custom_redis_configuration_after_disabling_parsed.distributed == '\OC\Memcache\Redis'
+      - nextcloud_custom_redis_configuration_after_disabling_parsed.locking == '\OC\Memcache\Redis'
