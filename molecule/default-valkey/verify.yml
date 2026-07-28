@@ -204,6 +204,25 @@
       loop_control:
         loop_var: nextcloud_invalid_redis_port
 
+    - name: Verify Unix-socket mode ignores an invalid raw TCP port
+      vars:
+        nextcloud_redis_socket_enabled: true
+        nextcloud_redis_socket_path_host: /valkey/run
+        nextcloud_redis_hostname: ""
+        nextcloud_redis_port: not-a-port
+      block:
+        - name: Validate Unix-socket mode with an unused invalid raw TCP port
+          ansible.builtin.include_role:
+            name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+            public: true
+            tasks_from: validate_config
+
+        - name: Assert Unix-socket mode normalizes its effective port
+          ansible.builtin.assert:
+            that:
+              - nextcloud_environment_variables_redis_port | string == '0'
+            success_msg: "Unix-socket mode ignores its unused raw TCP port"
+
     - name: Verify disabled Redis integration ignores an unused invalid port
       vars:
         nextcloud_redis_socket_enabled: false
@@ -222,6 +241,25 @@
             that:
               - not nextcloud_redis_is_configured | bool
             success_msg: "Disabled Redis integration ignores its unused port"
+
+    - name: Verify disabled Redis integration also ignores the socket selector
+      vars:
+        nextcloud_redis_socket_enabled: true
+        nextcloud_redis_socket_path_host: ""
+        nextcloud_redis_hostname: ""
+        nextcloud_redis_port: not-a-port
+      block:
+        - name: Validate disabled Redis integration with the socket selector
+          ansible.builtin.include_role:
+            name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+            public: true
+            tasks_from: validate_config
+
+        - name: Assert endpoints, rather than the selector, control enablement
+          ansible.builtin.assert:
+            that:
+              - not nextcloud_redis_is_configured | bool
+            success_msg: "Disabled Redis integration ignores its transport selector"
 
     - name: Assert Nextcloud HTTP endpoint responds
       ansible.builtin.assert:
