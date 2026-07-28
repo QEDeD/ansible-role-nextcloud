@@ -231,6 +231,8 @@ nextcloud_redis_password: YOUR_REDIS_SERVER_PASSWORD_HERE
 
 Make sure to replace `YOUR_REDIS_SERVER_HOSTNAME_HERE` and `YOUR_REDIS_SERVER_PASSWORD_HERE` with your own values.
 
+`nextcloud_redis_password` is written to Docker's line-oriented environment file, so carriage returns, line feeds, and NUL characters are rejected. The password also reaches the official Nextcloud image's PHP Redis session configuration. The image inserts it unescaped into the `auth` query of a URI-like, double-quoted `session.save_path`, so an environment-file-compatible password is not necessarily safe for the session handler. This role tests an apostrophe through Docker, Nextcloud configuration, and a real PHP session round trip; it does not establish support for arbitrary metacharacters. Unless you independently verify Redis-backed PHP session authentication with your chosen password, prefer an unpadded base64url value using only `A-Z`, `a-z`, `0-9`, `_`, and `-`. See the [official image's session-handler configuration](https://github.com/nextcloud/docker/blob/master/docker-entrypoint.sh#L83-L119) and [PhpRedis session-handler documentation](https://github.com/phpredis/phpredis/blob/develop/README.md#php-session-handler).
+
 See below for details:
 
 - <https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/caching_configuration.html>
