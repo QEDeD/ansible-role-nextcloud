@@ -103,9 +103,44 @@
     daemon_reload: true
 
 - name: Restart Nextcloud without Redis integration
-  ansible.builtin.systemd_service:
-    name: nextcloud-server.service
-    state: restarted
+  block:
+    - name: Restart Nextcloud without Redis integration
+      ansible.builtin.systemd_service:
+        name: nextcloud-server.service
+        state: restarted
+  rescue:
+    - name: Read failed Nextcloud service status
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - status
+          - nextcloud-server.service
+          - --no-pager
+          - --full
+      register: nextcloud_redis_disable_service_status
+      changed_when: false
+      failed_when: false
+
+    - name: Read failed Nextcloud service journal
+      ansible.builtin.command:
+        argv:
+          - journalctl
+          - --unit=nextcloud-server.service
+          - --lines=100
+          - --no-pager
+      register: nextcloud_redis_disable_service_journal
+      changed_when: false
+      failed_when: false
+
+    - name: Report failed Nextcloud restart diagnostics
+      ansible.builtin.debug:
+        msg:
+          - "{{ nextcloud_redis_disable_service_status.stdout }}"
+          - "{{ nextcloud_redis_disable_service_journal.stdout }}"
+
+    - name: Fail the Redis-disable transition after reporting diagnostics
+      ansible.builtin.fail:
+        msg: Nextcloud failed to restart after removing its Redis runtime wiring.
 
 - name: Stop Valkey after Nextcloud no longer depends on it
   ansible.builtin.systemd_service:
