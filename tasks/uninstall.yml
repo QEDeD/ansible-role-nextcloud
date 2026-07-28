@@ -97,9 +97,19 @@
           {{ nextcloud_container_network }}
       register: nextcloud_network_deletion_result
       changed_when: nextcloud_network_deletion_result.rc == 0
-      failed_when:
-        - nextcloud_network_deletion_result.rc != 0
-        - "'not found' not in (nextcloud_network_deletion_result.stderr | lower)"
+      failed_when: >-
+        nextcloud_network_deletion_result.rc != 0
+        and (
+          nextcloud_network_deletion_result.rc != 1
+          or (
+            (
+              'network ' ~ (nextcloud_container_network | lower) ~ ' not found'
+            ) not in (nextcloud_network_deletion_result.stderr | lower)
+            and (
+              'no such network: ' ~ (nextcloud_container_network | lower)
+            ) not in (nextcloud_network_deletion_result.stderr | lower)
+          )
+        )
 
 - name: Check existence of Nextcloud local data path
   ansible.builtin.stat:

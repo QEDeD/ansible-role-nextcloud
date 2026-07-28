@@ -14,6 +14,7 @@
     nextcloud_test_redis_session_ini_path: "{{ nextcloud_test_base_path }}/redis-session.ini"
     nextcloud_test_systemd_path: "{{ devture_systemd_docker_base_systemd_path }}"
     nextcloud_test_network: nextcloud
+    nextcloud_test_failing_docker_command: /tmp/nextcloud-test-docker-unrelated-failure
   tasks:
     - name: Include support roles for Nextcloud uninstall tests
       ansible.builtin.include_role:
@@ -165,10 +166,16 @@
         state: directory
         mode: "0755"
 
-    - name: Recreate the Nextcloud network via the Ansible module
-      community.docker.docker_network:
-        name: "{{ nextcloud_test_network }}"
-        state: present
+    - name: Recreate the Nextcloud network for Ansible-module cleanup
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/env
+          - docker
+          - network
+          - create
+          - "{{ nextcloud_test_network }}"
+      register: nextcloud_test_network_module_creation
+      changed_when: nextcloud_test_network_module_creation.rc == 0
 
     - name: Repeat cleanup via the Ansible network module
       ansible.builtin.include_role:
@@ -280,6 +287,54 @@
         that:
           - nextcloud_test_network_after_repeated_command_cleanup.rc != 0
           - nextcloud_test_data_after_repeated_command_cleanup.stat.exists
+
+    - name: Create a Docker-command shim for an unrelated failure
+      ansible.builtin.copy:
+        content: |
+          #!/bin/sh
+          echo 'unrelated object not found' >&2
+          exit 1
+        dest: "{{ nextcloud_test_failing_docker_command }}"
+        mode: "0755"
+
+    - name: Initialize unrelated Docker failure observation
+      ansible.builtin.set_fact:
+        nextcloud_test_unrelated_docker_failure_observed: false
+
+    - name: Verify unrelated command failures remain fatal
+      block:
+        - name: Run cleanup with an unrelated failing Docker command
+          ansible.builtin.include_role:
+            name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+            public: true
+          vars:
+            nextcloud_enabled: false
+            nextcloud_redis_hostname: ""
+            nextcloud_redis_socket_enabled: false
+            nextcloud_redis_socket_path_host: ""
+            devture_systemd_docker_base_container_network_creation_method: command
+            devture_systemd_docker_base_host_command_docker: "{{ nextcloud_test_failing_docker_command }}"
+      rescue:
+        - name: Assert the expected Docker command was the failure source
+          ansible.builtin.assert:
+            that:
+              - ansible_failed_task.name == 'Ensure Nextcloud container network does not exist via ansible.builtin.command'
+              - ansible_failed_result.rc == 1
+              - ansible_failed_result.stderr == 'unrelated object not found'
+
+        - name: Record the expected unrelated Docker command failure
+          ansible.builtin.set_fact:
+            nextcloud_test_unrelated_docker_failure_observed: true
+      always:
+        - name: Remove the failing Docker-command shim
+          ansible.builtin.file:
+            path: "{{ nextcloud_test_failing_docker_command }}"
+            state: absent
+
+    - name: Assert unrelated Docker command failures are not ignored
+      ansible.builtin.assert:
+        that:
+          - nextcloud_test_unrelated_docker_failure_observed
 
     - name: Remove retained Nextcloud data test marker
       ansible.builtin.file:
