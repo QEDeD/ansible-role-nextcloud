@@ -9,7 +9,7 @@
     path: "{{ devture_systemd_docker_base_systemd_path }}/{{ nextcloud_identifier }}-server.service"
   register: nextcloud_service_stat
 
-- name: Uninstall Nextcloud systemd services and files
+- name: Uninstall Nextcloud systemd services
   when: nextcloud_service_stat.stat.exists | bool
   block:
     - name: Ensure Nextcloud systemd services are stopped
@@ -37,6 +37,14 @@
         - app-update.service
         - app-update.timer
 
+- name: Ensure Nextcloud Redis session ini file does not exist
+  ansible.builtin.file:
+    path: "{{ nextcloud_redis_session_ini_path }}"
+    state: absent
+
+- name: Uninstall Nextcloud support files and network
+  when: nextcloud_service_stat.stat.exists | bool
+  block:
     - name: Ensure Nextcloud support files do not exist
       ansible.builtin.file:
         path: "{{ nextcloud_base_path }}/{{ item }}"
@@ -48,12 +56,6 @@
     - name: Ensure Nextcloud image source files path does not exist
       ansible.builtin.file:
         path: "{{ nextcloud_customized_container_src_path }}"
-        state: absent
-
-    - name: Ensure Nextcloud Redis session ini file does not exist
-      when: nextcloud_redis_is_configured | bool
-      ansible.builtin.file:
-        path: "{{ nextcloud_redis_session_ini_path }}"
         state: absent
 
     - name: Ensure Nextcloud local data path does not exist if empty
