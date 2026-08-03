@@ -32,7 +32,7 @@
       {{ devture_systemd_docker_base_host_command_docker }} exec
       --user={{ nextcloud_uid }}:{{ nextcloud_gid }}
       {{ nextcloud_identifier }}-server
-      php /var/www/html/occ --no-warnings config:system:set redis --type json --value '{"host":"{{ nextcloud_environment_variables_redis_host }}","port":{{ nextcloud_redis_port }}{% if nextcloud_redis_password != '' %},"password":"{{ nextcloud_redis_password }}"{% endif %}}'
+      php /var/www/html/occ --no-warnings config:system:set redis --type json --value '{"host":"{{ nextcloud_environment_variables_redis_host }}","port":{{ nextcloud_environment_variables_redis_port }}{% if nextcloud_redis_password != '' %},"password":"{{ nextcloud_redis_password }}"{% endif %}}'
 
 - name: Adjust Nextcloud configuration (custom parameters)
   ansible.builtin.command:

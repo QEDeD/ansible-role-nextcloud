@@ -23,6 +23,18 @@
         fail_msg: "nextcloud-server.service not active ({{ nextcloud_service.status.ActiveState }})"
         success_msg: "nextcloud-server.service is active"
 
+    - name: Read Nextcloud environment file
+      ansible.builtin.slurp:
+        src: "{{ nextcloud_base_path }}/env"
+      register: nextcloud_environment_file
+
+    - name: Assert Redis socket port in Nextcloud environment is normalized to zero
+      ansible.builtin.assert:
+        that:
+          - "'REDIS_HOST_PORT=0' in (nextcloud_environment_file.content | b64decode).splitlines()"
+        fail_msg: "Nextcloud environment does not contain the normalized Redis socket port"
+        success_msg: "Nextcloud environment contains the normalized Redis socket port"
+
     - name: Retrieve Nextcloud service log for debugging
       when: nextcloud_debug_service_enabled | bool
       ansible.builtin.command:
@@ -39,6 +51,44 @@
       until: nextcloud_endpoint.status in [200, 302]
       retries: 120
       delay: 5
+
+    - name: Read persisted Redis port from Nextcloud configuration
+      ansible.builtin.command:
+        cmd: >-
+          {{ devture_systemd_docker_base_host_command_docker }} exec
+          --user={{ nextcloud_uid }}:{{ nextcloud_gid }}
+          {{ nextcloud_identifier }}-server
+          php /var/www/html/occ --no-warnings config:system:get redis port
+      register: nextcloud_redis_persisted_port
+      changed_when: false
+
+    - name: Assert persisted Redis socket port is normalized to zero
+      ansible.builtin.assert:
+        that:
+          - nextcloud_redis_persisted_port.stdout | trim == '0'
+        fail_msg: >-
+          Nextcloud persisted Redis port is
+          `{{ nextcloud_redis_persisted_port.stdout | trim }}` instead of `0`
+        success_msg: "Nextcloud persisted Redis socket port is normalized to zero"
+
+    - name: Validate a custom Redis TCP port
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        tasks_from: validate_config
+      vars:
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+        nextcloud_redis_hostname: valkey
+        nextcloud_redis_port: 6380
+
+    - name: Verify invalid Redis TCP ports are rejected
+      ansible.builtin.include_tasks: tasks/verify-redis-port-validation.yml
+      loop:
+        - 0
+        - 65536
+        - not-a-port
+      loop_control:
+        loop_var: nextcloud_invalid_redis_port
 
     - name: Assert Nextcloud HTTP endpoint responds
       ansible.builtin.assert:
