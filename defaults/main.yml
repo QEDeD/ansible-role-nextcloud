@@ -474,8 +474,9 @@ nextcloud_redis_socket_path_host: ""
 nextcloud_environment_variables_redis_host: "{{ nextcloud_redis_socket_path_container + nextcloud_redis_socket_path if nextcloud_redis_socket_enabled else nextcloud_redis_hostname }}"
 
 # Effective Redis port passed to Nextcloud. Unix sockets require port `0`;
-# TCP uses the operator-configured `nextcloud_redis_port`.
-nextcloud_environment_variables_redis_port: "{{ '0' if nextcloud_redis_socket_enabled else nextcloud_redis_port }}"
+# TCP uses the operator-configured `nextcloud_redis_port`, normalized to an
+# integer so it is safe to embed in Nextcloud's JSON configuration.
+nextcloud_environment_variables_redis_port: "{{ 0 if nextcloud_redis_socket_enabled else nextcloud_redis_port | int }}"
 
 ########################################################################
 #                                                                      #
