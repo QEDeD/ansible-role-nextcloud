@@ -11,7 +11,6 @@
   vars:
     nextcloud_test_base_path: /nextcloud
     nextcloud_test_identifier: nextcloud
-    nextcloud_test_host_command_docker: /usr/bin/env docker
   tasks:
     - name: Wait for Nextcloud service to become active (up to 180s)
       ansible.builtin.systemd:
@@ -56,13 +55,42 @@
       retries: 120
       delay: 5
 
-    - name: Read persisted Redis port from Nextcloud configuration
+    - name: Include systemd Docker base defaults for Redis adjustment testing
+      ansible.builtin.include_role:
+        name: com.devture.ansible.role.systemd_docker_base
+        public: true
+
+    - name: Persist Redis configuration through the role-owned adjustment
+      vars:
+        nextcloud_redis_socket_path_host: /valkey/run
+        nextcloud_config_parameters: []
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        public: true
+        tasks_from: adjust_config
+
+    - name: Read persisted Redis port directly from main config.php
       ansible.builtin.command:
-        cmd: >-
-          {{ nextcloud_test_host_command_docker }} exec
-          --user={{ nextcloud_uid }}:{{ nextcloud_gid }}
-          {{ nextcloud_test_identifier }}-server
-          php /var/www/html/occ --no-warnings config:system:get redis port
+        argv:
+          - /usr/bin/env
+          - docker
+          - exec
+          - "--user={{ nextcloud_uid }}:{{ nextcloud_gid }}"
+          - "{{ nextcloud_test_identifier }}-server"
+          - php
+          - -r
+          - >-
+            $CONFIG = [];
+            require '/var/www/html/config/config.php';
+            if (
+              !array_key_exists('redis', $CONFIG)
+              || !is_array($CONFIG['redis'])
+              || !array_key_exists('port', $CONFIG['redis'])
+            ) {
+              echo 'missing';
+              exit;
+            }
+            echo (string) $CONFIG['redis']['port'];
       register: nextcloud_redis_persisted_port
       changed_when: false
 
@@ -123,6 +151,25 @@
         - not-a-port
       loop_control:
         loop_var: nextcloud_invalid_redis_port
+
+    - name: Verify disabled Redis integration ignores an unused invalid port
+      vars:
+        nextcloud_redis_socket_enabled: false
+        nextcloud_redis_socket_path_host: ""
+        nextcloud_redis_hostname: ""
+        nextcloud_redis_port: not-a-port
+      block:
+        - name: Validate disabled Redis integration with an unused invalid port
+          ansible.builtin.include_role:
+            name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+            public: true
+            tasks_from: validate_config
+
+        - name: Assert endpoint absence keeps Redis integration disabled
+          ansible.builtin.assert:
+            that:
+              - not nextcloud_redis_is_configured | bool
+            success_msg: "Disabled Redis integration ignores its unused port"
 
     - name: Assert Nextcloud HTTP endpoint responds
       ansible.builtin.assert:
