@@ -161,6 +161,9 @@
           For TCP, ensure the Redis hostname is reachable from the Nextcloud container.
           If it identifies another container, add an appropriate shared network to
           `nextcloud_container_additional_networks_custom` if needed.
+          On an existing deployment, see "Changing or disabling Redis integration" in
+          `docs/configuring-nextcloud.md` before applying the target state; disabling
+          and enabling or switching use different command orders.
       when: >-
         nextcloud_redis_hostname | string | length != 0 and
         nextcloud_redis_socket_path_host | string | length != 0
@@ -195,6 +198,9 @@
           For TCP, ensure the Redis hostname is reachable from the Nextcloud container.
           If it identifies another container, add an appropriate shared network to
           `nextcloud_container_additional_networks_custom` if needed.
+          On an existing deployment, see "Changing or disabling Redis integration" in
+          `docs/configuring-nextcloud.md` before applying the target state; disabling
+          and enabling or switching use different command orders.
       when: >-
         nextcloud_redis_hostname | string | length != 0 and
         nextcloud_redis_socket_enabled
@@ -229,6 +235,9 @@
           For TCP, ensure the Redis hostname is reachable from the Nextcloud container.
           If it identifies another container, add an appropriate shared network to
           `nextcloud_container_additional_networks_custom` if needed.
+          On an existing deployment, see "Changing or disabling Redis integration" in
+          `docs/configuring-nextcloud.md` before applying the target state; disabling
+          and enabling or switching use different command orders.
       when: >-
         nextcloud_redis_socket_path_host | string | length != 0 and
         not nextcloud_redis_socket_enabled

@@ -266,9 +266,12 @@ When changing the integration, choose the complete target state:
 - TCP: set `nextcloud_redis_socket_enabled: false`, configure `nextcloud_redis_hostname` and its TCP port (default `6379`), and omit or remove `nextcloud_redis_socket_path_host`.
 - Disabled: omit or remove both endpoint variables and any Redis-only entries in `nextcloud_container_additional_networks_custom` and `nextcloud_systemd_required_services_list_custom`. The transport selector and port have no effect when neither endpoint is configured.
 
-On an existing deployment, rerun the installation after changing these settings, then run the playbook with the `adjust-nextcloud-config` tag as described in [Update configuration](#update-configuration). The installation updates the container configuration, while the adjustment updates or removes Nextcloud's persisted Redis and memory-cache settings.
+On an existing deployment, apply the change in the order which matches the transition:
 
-After both runs, use the `query-status-nextcloud` tag described in [Query the server status](#query-the-server-status) and review the **Administration settings** → **Overview** page for Redis-related warnings. To roll back, restore the previous complete target state—including clearing both endpoints if Redis integration was disabled—and repeat the installation and adjustment runs.
+- When enabling Redis or switching between Unix socket and TCP, rerun the installation first, then run the playbook with the `adjust-nextcloud-config` tag as described in [Update configuration](#update-configuration). The installation makes the new socket mount or TCP network available before the adjustment writes that endpoint to Nextcloud's persisted configuration.
+- When disabling Redis, keep the old Redis-compatible server and connection available at first. Clear both endpoint variables, then run `adjust-nextcloud-config` **before** rerunning the installation. The adjustment removes the persisted `redis`, `memcache.distributed`, and `memcache.locking` settings while the old endpoint is still reachable; the installation then removes the container environment, socket mount or network, Redis session configuration, and systemd dependency.
+
+After both runs, use the `query-status-nextcloud` tag described in [Query the server status](#query-the-server-status) and review the **Administration settings** → **Overview** page for Redis-related warnings. To roll back, restore the previous complete target state and repeat the applicable transition order above. If the old endpoint became unavailable before the disabling adjustment, restore its previous connection settings and availability before retrying the disable sequence.
 
 Disabling Nextcloud's Redis integration does not stop or uninstall an external Redis-compatible server, and it does not delete that server's data. Manage the server's lifecycle separately, especially when other applications share it.
 
